@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#fbf3ee" />
+  <title>You're offline · BabySteps by Guide</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #fbf3ee; color: #3b2a24; font: 400 16px/1.6 'Helvetica Neue', Helvetica, Arial, sans-serif; text-align: center; }
+    main { max-width: 420px; }
+    img { width: 150px; height: auto; margin-bottom: 28px; }
+    p.k { margin: 0 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .28em; text-transform: uppercase; color: #a4664f; }
+    h1 { margin: 0 0 12px; font: 400 34px/1.15 Georgia, 'Times New Roman', serif; }
+    p { margin: 0 0 24px; color: #6f665d; }
+    button, a.btn { display: inline-block; padding: 14px 26px; border: 0; background: #3b2a24; color: #fff; font: 600 12px/1 inherit; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; text-decoration: none; }
+    .alt { display: block; margin-top: 18px; color: #a4664f; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/logo.png" alt="BabySteps by Guide" />
+    <p class="k">No connection</p>
+    <h1>You're offline</h1>
+    <p>Check your internet connection and try again. Pages you've already visited may still open.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+    <a class="alt" href="tel:+919205128749">or call us: +91 92051 28749</a>
+  </main>
+  <script>window.addEventListener('online', () => location.reload());</script>
+</body>
+</html>

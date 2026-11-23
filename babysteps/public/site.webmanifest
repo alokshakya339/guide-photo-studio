@@ -1,0 +1,80 @@
+{
+  "id": "/",
+  "name": "BabySteps by Guide",
+  "short_name": "BabySteps",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "description": "Maternity, newborn, milestone, cake-smash and family photography in Noida by BabySteps by Guide.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#a4664f",
+  "background_color": "#fbf3ee",
+  "categories": [
+    "photo",
+    "lifestyle"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Portfolio",
+      "url": "/portfolio",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Packages",
+      "url": "/services",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Gift cards",
+      "url": "/gift-cards",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Book a shoot",
+      "url": "/contact",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

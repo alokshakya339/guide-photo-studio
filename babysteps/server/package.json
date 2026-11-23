@@ -1,0 +1,35 @@
+{
+  "name": "babysteps-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "NODE_ENV=production node src/index.js",
+    "seed": "node src/seed.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@aws-sdk/client-s3": "^3.1169.0",
+    "@aws-sdk/s3-request-presigner": "^3.1169.0",
+    "archiver": "^8.0.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.7.5",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.12.3",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^10.5.0"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "overrides": {
+    "mongodb": "^7.9.1",
+    "minimatch": "^11.0.9"
+  }
+}
