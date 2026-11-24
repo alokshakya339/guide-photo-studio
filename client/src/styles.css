@@ -2256,3 +2256,90 @@ body.adm-body { background: #0c0b0d; }
 .cms__audio-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .cms__audio-row input[type='text'] { flex: 1 1 240px; }
 .cms__audio-player { width: 100%; }
+
+/* ---------- Sticker collage section (components/StickerWall.jsx, Home) ---------- */
+.estickers { position: relative; overflow: hidden; padding-top: clamp(72px, 9vw, 130px); }
+.estickers__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+.ed .estickers__head .etitle { margin-bottom: 0; }
+.estickers__aside { max-width: 34ch; margin: 0; color: var(--muted); font-weight: 300; }
+.estickers__aside .elink { display: inline-flex; margin-top: 14px; }
+.stickers { position: relative; height: clamp(300px, 32vw, 460px); margin-top: clamp(28px, 4vw, 56px); }
+.sticker {
+  position: absolute; left: var(--x); bottom: var(--y); width: var(--w); aspect-ratio: var(--ratio); z-index: 1;
+  transform: translateY(70%) rotate(var(--r)); opacity: 0;
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i) * 70ms), opacity 0.5s ease calc(var(--i) * 70ms), filter 0.4s;
+  filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.45));
+}
+.sticker--hero { z-index: 2; }
+.stickers.is-in .sticker { transform: translateY(0) rotate(var(--r)); opacity: 1; }
+.stickers.is-in .sticker:hover, .stickers.is-in .sticker:focus-visible {
+  z-index: 5; transform: translateY(-9%) rotate(0deg) scale(1.1); transition-delay: 0s;
+  filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.6));
+}
+/* neighbours shrink back a touch so the hovered sticker reads as picked up */
+.stickers.is-in:has(.sticker:hover) .sticker:not(:hover) { transform: translateY(4%) rotate(var(--r)) scale(0.97); transition-delay: 0s; }
+.sticker:focus-visible { outline: none; }
+.sticker:focus-visible .sticker__cut { border-color: var(--accent, #cf0000); }
+
+.sticker__cut { position: absolute; inset: 0; overflow: hidden; border: 7px solid #fff; background: #fff; }
+.sticker__cut img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s; }
+.sticker:hover .sticker__cut img { transform: scale(1.06); }
+.sticker__alt { opacity: 0; }
+.sticker:hover .sticker__alt, .sticker:focus-visible .sticker__alt { opacity: 1; }
+
+/* organic die-cut outlines */
+.sticker--a .sticker__cut { border-radius: 34% 22% 28% 16% / 26% 30% 18% 24%; }
+.sticker--b .sticker__cut { border-radius: 18% 40% 22% 30% / 30% 22% 34% 20%; }
+.sticker--c .sticker__cut { border-radius: 40% 20% 30% 24% / 22% 34% 20% 30%; }
+.sticker--d .sticker__cut { border-radius: 46% 46% 22% 22% / 34% 34% 16% 16%; } /* arched top, like a portrait cut-out */
+
+@media (max-width: 760px) {
+  .stickers { height: 66vw; margin-top: 24px; }
+  .sticker__cut { border-width: 4px; }
+  .sticker--wide { display: none; }
+  .sticker { --w-m: calc(var(--w) * 1.3); width: var(--w-m); }
+  .sticker:nth-child(2) { left: -4%; }
+  .sticker:nth-child(3) { left: 14%; }
+  .sticker--hero { left: 27%; }
+  .sticker:nth-child(5) { left: 62%; }
+  .sticker:nth-child(7) { left: 68%; }
+}
+@media (max-width: 640px) {
+  .estickers__head { gap: 18px; }
+  /* phones: no tucking below the edge — the whole collage sits in view, nothing is cut flat */
+  .estickers { padding-bottom: 8px; }
+  .stickers { height: 92vw; margin-top: 8px; }
+  .sticker { width: calc(var(--w) * 1.5); bottom: calc(var(--y) + 26%); }
+  .sticker--hero { bottom: 3%; }
+  .sticker:nth-child(7) { bottom: 5%; }
+  .sticker:nth-child(2) { left: -8%; }
+  .sticker:nth-child(3) { left: 6%; }
+  .sticker--hero { left: 24%; }
+  .sticker:nth-child(5) { left: 58%; }
+  .sticker:nth-child(7) { left: 62%; }
+}
+/* touch: tapped sticker gets the hover treatment; idle stickers bob gently; hero photo auto-swaps */
+.stickers.is-in .sticker.is-picked { z-index: 5; transform: translateY(-9%) rotate(0deg) scale(1.12); transition-delay: 0s; filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.6)); }
+.stickers.is-in.has-pick .sticker:not(.is-picked) { transform: translateY(4%) rotate(var(--r)) scale(0.96); transition-delay: 0s; filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.45)) brightness(0.7); }
+.sticker.is-picked .sticker__alt, .stickers.is-swapped .sticker__alt { opacity: 1; }
+.sticker::after {
+  content: 'Tap to open'; position: absolute; left: 50%; bottom: 100%; translate: -50% 4px; opacity: 0; pointer-events: none; white-space: nowrap;
+  padding: 6px 12px; border-radius: 999px; background: #fff; color: #111; font: 600 0.68rem/1 var(--font-body, sans-serif); letter-spacing: 0.08em; text-transform: uppercase;
+  transition: opacity 0.3s, translate 0.3s;
+}
+.sticker.is-picked::after { opacity: 1; translate: -50% -8px; }
+@keyframes stickerBob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
+@media (hover: none) {
+  .stickers.is-in .sticker__cut { animation: stickerBob 4.2s ease-in-out calc(1s + var(--i) * -0.7s) infinite; }
+  .sticker { -webkit-tap-highlight-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sticker, .sticker__cut img { transition: none; }
+  .stickers .sticker { transform: rotate(var(--r)); opacity: 1; }
+  .stickers .sticker__cut { animation: none !important; }
+}
+/* lighter shadows on the cream home page */
+.ed .estickers .sticker { filter: drop-shadow(0 16px 22px rgba(60, 45, 30, 0.28)); }
+.ed .estickers.estickers .sticker:hover, .ed .estickers .sticker.is-picked { filter: drop-shadow(0 28px 36px rgba(60, 45, 30, 0.4)); }
+.ed .estickers .stickers.has-pick .sticker:not(.is-picked) { filter: drop-shadow(0 16px 22px rgba(60, 45, 30, 0.28)) brightness(0.8); }
+.ed .estickers .sticker::after { background: var(--text); color: var(--bg); }

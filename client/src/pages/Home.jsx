@@ -11,6 +11,8 @@ import VideoBg from '../components/VideoBg.jsx';
 import Founders from '../components/Founders.jsx';
 import FamilyTree from '../components/FamilyTree.jsx';
 import KindWords from '../components/KindWords.jsx';
+import ShootPicker from '../components/ShootPicker.jsx';
+import StickerWall from '../components/StickerWall.jsx';
 import { useTitle, useReveal, CountUp, Loader, ErrorNote } from '../components/common.jsx';
 import { IconArrow, IconPhone, IconWhatsApp } from '../components/Icons.jsx';
 
@@ -115,6 +117,8 @@ export default function Home() {
       </section>
 
       <Marquee items={[...catNames, 'Wedding Films']} />
+
+      <ShootPicker categories={cats.data || []} />
 
       {/* Full-bleed feature */}
       <section className="efeature">
@@ -274,6 +278,8 @@ export default function Home() {
       <KindWords items={quotes} />
 
       <Awards />
+
+      <StickerWall />
 
       {/* Closing CTA */}
       <section className="esec eclose">

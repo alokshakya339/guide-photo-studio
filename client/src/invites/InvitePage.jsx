@@ -8,6 +8,7 @@ import Temple from './templates/Temple.jsx';
 import Scroll from './templates/Scroll.jsx';
 import Codex from './templates/Codex.jsx';
 import Rajwada from './templates/Rajwada.jsx';
+import Cinema from './templates/Cinema.jsx';
 import '../invite.css';
 import '../invite-ancient.css';
 import '../invite-rajwada.css';
@@ -15,6 +16,7 @@ import '../invite-garden.css';
 import '../invite-mela.css';
 import '../invite-deco.css';
 import '../invite-minimal.css';
+import '../invite-cinema.css';
 
 /** Theme registry: add a new theme here and it becomes available in Admin → Invitations. */
 export const TEMPLATES = {
@@ -28,6 +30,7 @@ export const TEMPLATES = {
   scroll: { name: 'Sacred Scroll', C: Scroll },
   codex: { name: 'Royal Codex', C: Codex },
   rajwada: { name: 'Rajwada Royal', C: Rajwada },
+  cinema: { name: 'Cinema Reel', C: Cinema },
 };
 
 const FONTS = {

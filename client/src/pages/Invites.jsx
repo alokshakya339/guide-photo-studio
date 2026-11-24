@@ -15,6 +15,7 @@ const DEMO_MINIMAL = '/invite/riya-raman-minimal?preview=a99a3ad51dde1edc1f30336
 const DEMO_TEMPLE = '/invite/riya-raman-temple?preview=3f9c1e7a5b2d48c6a0e4f71b9d2c86e5';
 const DEMO_SCROLL = '/invite/riya-raman-scroll?preview=c4e82a1f9b6d4073a5e1d8f2b7c39a60';
 const DEMO_RAJWADA = '/invite/riya-raman-rajwada?preview=5d2a9e7c1b4f4a38b6e0c3d9f8a17e42';
+const DEMO_CINEMA = '/invite/riya-raman-cinema?preview=922b94249195d7ac74f78b3ed21bfd9a';
 const DEMO_CODEX = '/invite/riya-raman-codex?preview=8b1d5f3e7a2c4e96b0d4a8f1c6e37b25';
 const inr = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
 
@@ -36,6 +37,7 @@ const STEPS = [
   ['Go live', 'Share your link — guestbook and RSVPs start coming in.'],
 ];
 const THEMES = [
+  ['Cinema Reel', 'New · a film-title opening — a hairline between your names opens into a window playing a looping scene; event cards stack as guests scroll.', '/images/home/couple-1.jpg', DEMO_CINEMA],
   ['Royal Indian', 'Maroon, ivory and gold with a wax-sealed envelope.', '/images/wedding/w12.jpg', DEMO],
   ['Guide Studio Editorial', 'Ivory, ink and antique gold — scratch-to-reveal date, story timeline, dress-code palettes.', '/images/home/couple-2.jpg', DEMO_EDITORIAL],
   ['Blush Garden', 'A secret garden — a 3D rosebud blooms open, vines sway, your story grows along a vine and photos fan out like a bouquet.', '/images/wedding/w17.jpg', DEMO_FLORAL],

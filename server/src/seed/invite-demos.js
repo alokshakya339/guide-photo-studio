@@ -76,6 +76,8 @@ const DEMOS = [
       { name: 'Shri Rajendra Mehta & Family', relation: 'Mama-Mami' },
     ],
   },
+  { slug: 'riya-raman-cinema', template: 'cinema', previewToken: '922b94249195d7ac74f78b3ed21bfd9a', coverPhoto: '/images/home/couple-1.jpg', heroScene: 'meadow',
+    story: 'Two lost hikers, one folded map and a long argument about which way was north. Somewhere between the wrong turn and the summit, we stopped arguing about directions and started walking the same way.' },
   { slug: 'riya-raman-codex', template: 'codex', previewToken: '8b1d5f3e7a2c4e96b0d4a8f1c6e37b25', coverPhoto: '/images/home/couple-2.jpg' },
 ];
 

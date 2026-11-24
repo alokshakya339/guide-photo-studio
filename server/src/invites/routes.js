@@ -46,7 +46,7 @@ function publicView(inv) {
     slug: o.slug, template: o.template, status: o.status,
     partner1: o.partner1, partner2: o.partner2, families: o.families, headline: o.headline,
     weddingDate: o.weddingDate, city: o.city, story: o.story,
-    coverPhoto: o.coverPhoto, couplePhoto: o.couplePhoto,
+    coverPhoto: o.coverPhoto, couplePhoto: o.couplePhoto, heroScene: o.heroScene || '',
     gallery: f.media ? (o.gallery || []).slice(0, MAX_GALLERY) : [], videoId: f.media ? o.videoId : '',
     music: f.music ? o.music : '', musicTitle: f.music ? o.musicTitle : '',
     events: (o.events || []).map(({ _id, ...e }) => e),
@@ -164,7 +164,10 @@ export const adminInviteRoutes = Router();
 adminInviteRoutes.use(requireAdmin);
 export const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024, files: 20 } });
 
-export const EDITABLE = ['template', 'partner1', 'partner2', 'families', 'headline', 'weddingDate', 'city', 'story', 'coverPhoto', 'couplePhoto', 'gallery', 'music', 'musicTitle', 'events', 'theme', 'rsvpEnabled', 'rsvpDeadline', 'wishesEnabled', 'showStudioCta', 'hashtag', 'couple', 'timeline', 'family', 'contacts', 'package', 'client', 'paymentStatus', 'notes'];
+/** Film loops the Cinema Reel design can show in its hero window (keys of SCENES in client Cinema.jsx). */
+const HERO_SCENES = ['meadow', 'blossom', 'lotus', 'fireflies', 'portal', 'photo'];
+
+export const EDITABLE = ['template', 'partner1', 'partner2', 'families', 'headline', 'weddingDate', 'city', 'story', 'coverPhoto', 'couplePhoto', 'heroScene', 'gallery', 'music', 'musicTitle', 'events', 'theme', 'rsvpEnabled', 'rsvpDeadline', 'wishesEnabled', 'showStudioCta', 'hashtag', 'couple', 'timeline', 'family', 'contacts', 'package', 'client', 'paymentStatus', 'notes'];
 
 export function validateInvite(b, { partial = false } = {}) {
   const f = {};
@@ -194,6 +197,7 @@ export function pick(b, fields = EDITABLE) {
   if (out.events) out.events = out.events.slice(0, 12).map((e) => ({ name: squish(e.name, 60), date: clip(e.date, 10), time: squish(e.time, 40), venue: squish(e.venue, 120), address: squish(e.address, 240), mapUrl: clip(e.mapUrl, 500), dressCode: squish(e.dressCode, 120), note: clip(e.note, 400), colors: (Array.isArray(e.colors) ? e.colors : []).filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 5) }));
   const media = (u) => (typeof u === 'string' && (/^https?:\/\//.test(u) || u.startsWith('/')) ? u.slice(0, 500) : '');
   if (out.hashtag !== undefined) out.hashtag = squish(out.hashtag, 60);
+  if (out.heroScene !== undefined) out.heroScene = HERO_SCENES.includes(out.heroScene) ? out.heroScene : '';
   if (out.couple) { const c = out.couple || {}; out.couple = { p1Parents: squish(c.p1Parents, 160), p1Bio: clip(c.p1Bio, 300), p1Photo: media(c.p1Photo), p2Parents: squish(c.p2Parents, 160), p2Bio: clip(c.p2Bio, 300), p2Photo: media(c.p2Photo) }; }
   const list = (v) => (Array.isArray(v) ? v : []);
   if (out.timeline) out.timeline = list(out.timeline).slice(0, 12).map((t) => ({ year: squish(t?.year, 20), title: squish(t?.title, 80), text: clip(t?.text, 400) })).filter((t) => t.title || t.text);

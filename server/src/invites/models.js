@@ -39,6 +39,7 @@ const invitationSchema = new Schema(
     contacts: [{ _id: false, name: { type: String, trim: true, maxlength: 80 }, role: { type: String, trim: true, maxlength: 80 }, phone: { type: String, trim: true, maxlength: 20 } }],
     // media
     coverPhoto: { type: String, default: '' },
+    heroScene: { type: String, default: '' }, // Cinema Reel: film loop in the hero window (see SCENES in Cinema.jsx)
     couplePhoto: { type: String, default: '' },
     gallery: [{ type: String }],
     videoId: { type: String, default: '' }, // YouTube id

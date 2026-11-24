@@ -4,6 +4,7 @@ import Select from '../components/Select.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 import { TEMPLATES } from '../invites/InvitePage.jsx';
+import { SCENES } from '../invites/templates/Cinema.jsx';
 import { api as publicApi } from '../api.js';
 
 const BASE = import.meta.env.VITE_API_URL || '';
@@ -694,6 +695,13 @@ function MediaPane({ inv, set, errs }) {
           <Uploader label={inv.couplePhoto ? 'Replace photo' : 'Upload photo'} folder={folder} onDone={(o) => o[0] && set('couplePhoto', o[0].url)} hint="Portrait works best." />
         </div>
       </div>
+      {inv.template === 'cinema' && (
+        <>
+          <h4>Film in the title window</h4>
+          <p className="muted small">Cinema Reel opens a window between your names that plays a short looping scene. Pick one, or show your cover photo instead.</p>
+          <Select value={inv.heroScene || 'meadow'} onChange={(v) => set('heroScene', v)} options={Object.entries(SCENES).map(([value, s]) => ({ value, label: s.name }))} ariaLabel="Film scene" />
+        </>
+      )}
       <h4>Gallery ({gallery.length}/{MAX_GALLERY})</h4>
       <Locked inv={inv} f="media" what="Gallery and film" />
       {gallery.length < MAX_GALLERY ? (
