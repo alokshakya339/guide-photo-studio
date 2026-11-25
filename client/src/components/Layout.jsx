@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { SITE } from '../site.js';
+import { useMounted } from './common.jsx';
 import { useAccount } from '../account/AccountContext.jsx';
 import InstallApp from './InstallApp.jsx';
 import {
@@ -9,6 +10,7 @@ import {
 } from './Icons.jsx';
 
 const CAREERS = { to: '/careers', label: 'Careers', hint: 'We’re hiring · join the team' };
+const CLIENT_GALLERY = { to: '/client', label: 'Client Gallery', hint: 'View & download your photos' };
 
 const NAV = [
   { to: '/', label: 'Home', end: true, hint: 'Start here' },
@@ -18,6 +20,7 @@ const NAV = [
   { to: '/about', label: 'Our Studio', hint: 'Our story & the team' },
   { to: '/gift-cards', label: 'Gift Cards', hint: 'Give the gift of memories' },
   { to: '/invites', label: 'Invites', hint: 'Digital wedding invitations' },
+  { to: '/blog', label: 'Blog', hint: 'Tips, ideas & stories' },
   { to: '/contact', label: 'Contact', hint: 'Check dates & enquire' },
 ];
 
@@ -35,10 +38,24 @@ function AccountLink({ className = '', onDark }) {
   );
 }
 
+/** Header link to the private client gallery login (gallery name + password). */
+function ClientGalleryLink({ className = '', onDark }) {
+  return (
+    <Link to="/client" className={`nav__account nav__gallery ${className} ${onDark ? 'is-light' : ''}`} aria-label="Client gallery login">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="3" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+      <span>Client gallery</span>
+    </Link>
+  );
+}
+
 // Desktop header: logo left, links centred, account + booking right (the logo is the way home).
-const NAV_DESKTOP = NAV.filter((n) => n.to !== '/');
+// Films and Services & Pricing stay out of the header (desktop bar and menu); the footer still links to them.
+const HEADER_HIDDEN = ['/', '/films', '/services'];
+const NAV_DESKTOP = NAV.filter((n) => !HEADER_HIDDEN.includes(n.to));
+const NAV_MENU = NAV.filter((n) => !HEADER_HIDDEN.slice(1).includes(n.to)); // the menu keeps Home
 
 function Navbar() {
+  const mounted = useMounted();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { pathname } = useLocation();
@@ -69,6 +86,7 @@ function Navbar() {
           {NAV_DESKTOP.map((n) => <NavLink key={n.to} to={n.to} end={n.end}>{n.label}</NavLink>)}
         </nav>
         <div className="nav__actions">
+          <ClientGalleryLink onDark={over} />
           <AccountLink onDark={over} />
           <button
             className="nav__burger"
@@ -81,12 +99,12 @@ function Navbar() {
         </div>
       </div>
     </header>
-    {createPortal(
+    {mounted && createPortal( /* menu drawer: added after mount, so server HTML and first browser render match */
       <div className="nav__drawer" hidden={!open} aria-label="Menu">
         <div className="drawer__scroll">
           <p className="drawer__eyebrow">Menu</p>
           <ol className="drawer__links">
-            {[...NAV, CAREERS].map((n, i) => (
+            {[...NAV_MENU, CLIENT_GALLERY, CAREERS].map((n, i) => (
               <li key={n.to} style={{ '--i': i }}>
                 <NavLink to={n.to} end={n.end} className="drawer__link">
                   <span className="drawer__num">{String(i + 1).padStart(2, '0')}</span>
@@ -196,6 +214,7 @@ function Footer() {
           <h4>Explore</h4>
           <ul className="footer__links">
             {NAV.slice(1).map((n) => <li key={n.to}><Link to={n.to}>{n.label}</Link></li>)}
+            <li><Link to="/client">Client gallery login</Link></li>
             <li><Link to="/careers">Careers <span className="footer__tag">Hiring</span></Link></li>
             <li><Link to="/privacy">Privacy policy</Link></li>
           </ul>
@@ -251,8 +270,24 @@ function TabBar() {
 }
 
 function ScrollToTop() {
-  const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  const { pathname, hash } = useLocation();
+  useEffect(() => {
+    if (!hash) { window.scrollTo(0, 0); return undefined; }
+    // Links like /services#corporate-enquiry: wait for the target to render, then scroll to it.
+    // Scroll once more after content above it (API data) has loaded and shifted the layout.
+    let tries = 0;
+    const timers = [];
+    const find = () => {
+      const el = document.getElementById(decodeURIComponent(hash.slice(1)));
+      if (el) {
+        el.scrollIntoView({ block: 'start' });
+        timers.push(setTimeout(() => el.scrollIntoView({ block: 'start' }), 700));
+      } else if (tries++ < 20) timers.push(setTimeout(find, 100));
+      else window.scrollTo(0, 0);
+    };
+    find();
+    return () => timers.forEach(clearTimeout);
+  }, [pathname, hash]);
   return null;
 }
 

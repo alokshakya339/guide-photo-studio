@@ -35,7 +35,7 @@ export function DialogProvider({ children }) {
   return (
     <DialogCtx.Provider value={api}>
       {children}
-      {dlg && createPortal(<DialogView {...dlg} onClose={close} />, document.body)}
+      {dlg && typeof document !== 'undefined' && createPortal(<DialogView {...dlg} onClose={close} />, document.body)}
     </DialogCtx.Provider>
   );
 }

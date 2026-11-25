@@ -13,7 +13,7 @@ import Select from '../components/Select.jsx';
 import DatePicker from '../components/DatePicker.jsx';
 const capOpt = (s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) });
 import {
-  SettingsEditor, MediaLibrary, Collection, CATEGORIES, FILMS, REELS, MUSIC, PACKAGES, FAQS, JOBS, TESTIMONIALS, AWARDS,
+  SettingsEditor, MediaLibrary, Collection, CATEGORIES, FILMS, REELS, MUSIC, PACKAGES, FAQS, JOBS, TESTIMONIALS, AWARDS, BLOG,
 } from '../admin/CmsPanels.jsx';
 
 const TOKEN_KEY = 'gps-admin';
@@ -109,7 +109,7 @@ function Inquiries({ call }) {
               {rows.map((r) => (
                 <tr key={r._id}>
                   <td>{fmtDate(r.createdAt)}</td>
-                  <td><strong>{r.name}</strong><br /><small className="muted">{r.location}</small></td>
+                  <td><strong>{r.name}</strong>{r.company && <><br /><small>🏢 {r.company}{r.designation ? ` · ${r.designation}` : ''}</small></>}<br /><small className="muted">{r.location}</small></td>
                   <td><a href={`tel:${r.phone}`}>{r.phone}</a><br /><small>{r.email}</small></td>
                   <td>{r.eventType || '—'}</td>
                   <td>{fmtDate(r.eventDate)}</td>
@@ -193,7 +193,7 @@ function Applications({ call }) {
   );
 }
 
-const NEW_GALLERY = { title: '', clientName: '', clientPhone: '', clientEmail: '', slug: '', password: '', eventDate: '', selectionLimit: '', freeDays: '', photos: '' };
+const NEW_GALLERY = { title: '', clientName: '', clientPhone: '', clientEmail: '', slug: '', password: '', eventDate: '', selectionLimit: '', freeDays: '', driveLinks: '' };
 const slugify = (v) => String(v).toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
 
 const ACCESS_LABEL = {
@@ -310,7 +310,10 @@ function Galleries({ call, token }) {
           eventDate: form.eventDate || undefined,
         },
       });
-      toast({ title: 'New gallery created successfully!', message: `“${form.title}” for ${form.clientName}. Share the login details now.` });
+      toast({
+        title: 'New gallery created successfully!',
+        message: `“${form.title}” for ${form.clientName}${created.photos?.length ? ` with ${created.photos.length} photos from Drive` : ''}. Share the login details now.${created.driveErrors?.length ? ` Some links were skipped: ${created.driveErrors.join(' ')}` : ''}`,
+      });
       setCreds(created);
       setShowNew(false);
       setForm(NEW_GALLERY);
@@ -396,17 +399,18 @@ function Galleries({ call, token }) {
           </div>
 
           <details className="newgal__more">
-            <summary>More options <small className="muted">event date, album limit, free hosting, photo links</small></summary>
+            <summary>More options <small className="muted">event date, album limit, free hosting</small></summary>
             <div className="newgal__grid newgal__grid--3">
               <label><span>Event date</span><DatePicker value={form.eventDate} onChange={(v) => set('eventDate')({ target: { value: v } })} ariaLabel="Event date" /></label>
               <label><span>Album pick limit</span><input type="number" min="0" value={form.selectionLimit} onChange={set('selectionLimit')} placeholder="0 = unlimited" /></label>
               <label><span>Free hosting (days)</span><input type="number" min="1" value={form.freeDays} onChange={set('freeDays')} placeholder="90 (default)" /></label>
             </div>
-            <label>
-              <span>Photo links (optional, one per line)</span>
-              <textarea rows={3} value={form.photos} onChange={set('photos')} placeholder={'You can also add photos after creating: upload, media library or Google Drive.'} />
-            </label>
           </details>
+          <label>
+            <span>Google Drive folder link</span>
+            <textarea rows={2} value={form.driveLinks} onChange={set('driveLinks')} placeholder={'https://drive.google.com/drive/folders/…  (optional, you can add it later)'} />
+            <small className="muted">Photos are added only from Google Drive. Share the folder as <b>“Anyone with the link can view”</b>; photos inside sub-folders need their own folder link.</small>
+          </label>
 
           {msg && <p className="note note--error">{msg}</p>}
           <div className="newgal__actions">
@@ -539,6 +543,7 @@ const ICONS = {
   jobs: <svg {...I}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18" /></svg>,
   testimonials: <svg {...I}><path d="M7 17c-2 0-3-1.5-3-3.5C4 10 6 7 9 6l.6 1.2C8 8 7.2 9.3 7 10.6c1.8 0 3 1.2 3 3s-1.2 3.4-3 3.4Zm9 0c-2 0-3-1.5-3-3.5 0-3.5 2-6.5 5-7.5l.6 1.2c-1.6.8-2.4 2.1-2.6 3.4 1.8 0 3 1.2 3 3s-1.2 3.4-3 3.4Z" /></svg>,
   security: <svg {...I}><rect x="4.5" y="10.5" width="15" height="10" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5M12 14.5v2.5" /></svg>,
+  blog: <svg {...I}><path d="M5 4h10l4 4v12H5Z" /><path d="M15 4v4h4M8 12h8M8 16h6" /></svg>,
   awards: <svg {...I}><circle cx="12" cy="9" r="6" /><path d="m8.5 14.5-1.5 7 5-3 5 3-1.5-7" /></svg>,
 };
 
@@ -572,6 +577,7 @@ const NAV_GROUPS = [
       ['portfolio', 'Portfolio', cms(CATEGORIES)],
       ['films', 'Films', cms(FILMS)],
       ['reels', 'Reels', cms(REELS)],
+      ['blog', 'Blog', cms(BLOG)],
       ['packages', 'Packages', cms(PACKAGES)],
       ['faqs', 'FAQs', cms(FAQS)],
       ['jobs', 'Careers roles', cms(JOBS)],

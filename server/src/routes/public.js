@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { Category, Package, Testimonial, Faq, Inquiry, Job, Application, Setting, Film, Reel, Award } from '../models/index.js';
+import { Category, Package, Testimonial, Faq, Inquiry, Job, Application, Setting, Film, Reel, Award, BlogPost } from '../models/index.js';
 import { DEFAULT_SITE } from '../cms/defaults.js';
 import { normalizeGiftCode, GIFT_CODE_RX } from '../giftCodes.js';
 
@@ -69,6 +69,23 @@ router.get('/testimonials', async (_req, res) => {
   res.json(await Testimonial.find({ published: true }).sort('-createdAt').lean());
 });
 
+/* ---------- Blog ---------- */
+const BLOG_LIVE = { published: true };
+/** Published posts, newest first (no body — the list only needs cards). */
+router.get('/blog', async (_req, res) => {
+  const posts = await BlogPost.find(BLOG_LIVE).sort({ date: -1, createdAt: -1 }).select('-body -order -__v').lean();
+  // Reading time needs the length of each body.
+  const lengths = await BlogPost.aggregate([{ $match: BLOG_LIVE }, { $project: { words: { $size: { $regexFindAll: { input: { $ifNull: ['$body', ''] }, regex: /\S+/ } } } } }]);
+  const words = Object.fromEntries(lengths.map((l) => [String(l._id), l.words]));
+  res.json(posts.map((p) => ({ ...p, minutes: Math.max(1, Math.round((words[String(p._id)] || 0) / 200)) })));
+});
+
+router.get('/blog/:slug', async (req, res) => {
+  const post = await BlogPost.findOne({ slug: String(req.params.slug).toLowerCase(), published: true }).select('-order -__v').lean();
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+  res.json(post);
+});
+
 router.get('/faqs', async (_req, res) => {
   res.json(await Faq.find().sort('order').lean());
 });
@@ -76,7 +93,8 @@ router.get('/faqs', async (_req, res) => {
 const inquiryLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false });
 
 router.post('/inquiries', inquiryLimiter, async (req, res) => {
-  const { name, phone, email, eventType, eventDate, location, budget, message, source, website, giftCode } = req.body || {};
+  const { name, phone, email, eventType, eventDate, location, budget, message, source, website, giftCode, company, designation } = req.body || {};
+  const corporate = source === 'corporate';
   // `website` is a hidden honeypot field; real visitors leave it empty.
   if (website) return res.status(201).json({ ok: true });
 
@@ -84,6 +102,8 @@ router.post('/inquiries', inquiryLimiter, async (req, res) => {
   if (!name || String(name).trim().length < 2) errors.name = 'Please enter your name';
   if (!phone || !/^[+\d][\d\s-]{7,18}$/.test(String(phone).trim())) errors.phone = 'Please enter a valid phone number';
   if (email && !/^\S+@\S+\.\S+$/.test(email)) errors.email = 'Please enter a valid email';
+  if (corporate && !email) errors.email = 'Please enter your work email';
+  if (corporate && (!company || String(company).trim().length < 2)) errors.company = 'Please enter your company name';
   if (eventDate && Number.isNaN(Date.parse(eventDate))) errors.eventDate = 'Invalid date';
   const gift = giftCode ? normalizeGiftCode(giftCode) : '';
   if (gift && !GIFT_CODE_RX.test(gift)) errors.giftCode = 'Gift card codes look like GS-XXXX-XXXX';
@@ -91,6 +111,7 @@ router.post('/inquiries', inquiryLimiter, async (req, res) => {
 
   const inquiry = await Inquiry.create({
     name, phone, email, eventType, location, budget, message, source, giftCode: gift || undefined,
+    company: company || undefined, designation: designation || undefined,
     eventDate: eventDate ? new Date(eventDate) : undefined,
   });
   res.status(201).json({ ok: true, id: inquiry._id });

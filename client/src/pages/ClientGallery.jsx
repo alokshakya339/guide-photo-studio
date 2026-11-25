@@ -336,7 +336,7 @@ export function ClientGallery() {
       title: `Send ${picks} photo${picks === 1 ? '' : 's'} to the studio?`,
       message: 'We’ll start on your album with these picks. After you submit, you can’t change them yourself. Just ask us if you need to.',
       icon: 'send',
-      images: chosen.map((p) => sized(p.src, 300)),
+      images: chosen.map((p) => p.thumb || sized(p.src, 300)),
       confirmLabel: `Submit ${picks} photo${picks === 1 ? '' : 's'}`,
       cancelLabel: 'Keep choosing',
     });
@@ -553,7 +553,7 @@ export function ClientGallery() {
               onLightboxClose={(idx) => { const pg = Math.floor(idx / PAGE_SIZE) + 1; if (pg !== current) setPage(pg); }}
               layout="grid"
               density={density}
-              thumb={(src) => sized(src, density === 'lg' ? 1000 : 640)}
+              thumb={(src, img) => img?.thumb || sized(src, density === 'lg' ? 1000 : 640)}
               full={(src) => sized(src, 2000)}
               onDouble={locked ? undefined : (p) => toggle(p, true)}
               lightboxKeys={locked ? undefined : { f: (p) => toggle(p), l: (p) => toggle(p) }}
@@ -562,7 +562,7 @@ export function ClientGallery() {
                 <span className="lightbox__actions">
                   {heart(p)}
                   {gallery.allowDownload && (
-                    <a className="icon-btn" href={downloadUrl(p.src)} download target={downloadUrl(p.src) !== p.src ? '_blank' : undefined} rel="noreferrer" aria-label="Download photo"><IconDownload /></a>
+                    <a className="icon-btn" href={p.download || downloadUrl(p.src)} download target={(p.download || downloadUrl(p.src)) !== p.src ? '_blank' : undefined} rel="noreferrer" aria-label="Download photo"><IconDownload /></a>
                   )}
                 </span>
               )}

@@ -1202,6 +1202,13 @@ a.contact-item:hover { border-color: rgba(207,0,0,0.5); }
 .drive textarea { min-height: 84px; font-size: 0.88rem; }
 .drive__foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .drive__foot b { color: #fff; font-weight: 600; }
+.drive__foot small { flex: 1 1 320px; }
+.drive__btns { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+/* Copy full size progress (admin/GalleryManager.jsx) */
+.drive__progress { display: grid; gap: 6px; font-size: 0.86rem; }
+.drive__progress-bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.drive__progress-bar i { display: block; height: 100%; background: var(--accent, #cf0000); transition: width 0.3s; }
+.drive__progress small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .drive__toggle { justify-self: start; gap: 10px; }
 
 /* ===== Admin: new client gallery form ===== */
@@ -2263,7 +2270,10 @@ body.adm-body { background: #0c0b0d; }
 .ed .estickers__head .etitle { margin-bottom: 0; }
 .estickers__aside { max-width: 34ch; margin: 0; color: var(--muted); font-weight: 300; }
 .estickers__aside .elink { display: inline-flex; margin-top: 14px; }
-.stickers { position: relative; height: clamp(300px, 32vw, 460px); margin-top: clamp(28px, 4vw, 56px); }
+/* Sticker sizes are % of the wall's width and offsets % of its height, so the wall keeps a fixed
+   aspect ratio — a clamped height let wide screens push the stickers up into the heading.
+   Capped width keeps the collage from ballooning on very large monitors. */
+.stickers { position: relative; width: 100%; max-width: 1680px; margin-inline: auto; aspect-ratio: 100 / 32; margin-top: clamp(28px, 4vw, 56px); }
 .sticker {
   position: absolute; left: var(--x); bottom: var(--y); width: var(--w); aspect-ratio: var(--ratio); z-index: 1;
   transform: translateY(70%) rotate(var(--r)); opacity: 0;
@@ -2294,7 +2304,7 @@ body.adm-body { background: #0c0b0d; }
 .sticker--d .sticker__cut { border-radius: 46% 46% 22% 22% / 34% 34% 16% 16%; } /* arched top, like a portrait cut-out */
 
 @media (max-width: 760px) {
-  .stickers { height: 66vw; margin-top: 24px; }
+  .stickers { aspect-ratio: auto; height: 66vw; margin-top: 24px; }
   .sticker__cut { border-width: 4px; }
   .sticker--wide { display: none; }
   .sticker { --w-m: calc(var(--w) * 1.3); width: var(--w-m); }
@@ -2343,3 +2353,12 @@ body.adm-body { background: #0c0b0d; }
 .ed .estickers.estickers .sticker:hover, .ed .estickers .sticker.is-picked { filter: drop-shadow(0 28px 36px rgba(60, 45, 30, 0.4)); }
 .ed .estickers .stickers.has-pick .sticker:not(.is-picked) { filter: drop-shadow(0 16px 22px rgba(60, 45, 30, 0.28)) brightness(0.8); }
 .ed .estickers .sticker::after { background: var(--text); color: var(--bg); }
+
+/* Admin Markdown field (admin/CollectionEditor.jsx → blog posts) */
+.mdfield { display: grid; gap: 8px; }
+.mdfield__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mdfield__head > span { font-size: 0.85rem; font-weight: 500; }
+.mdfield textarea { min-height: 320px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88rem; line-height: 1.6; }
+.mdfield__preview { min-height: 320px; max-height: 60vh; overflow: auto; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; }
+.mdfield__preview .md { font-size: 0.98rem; }
+.mdfield small b { font-weight: 600; }

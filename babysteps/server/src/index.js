@@ -16,6 +16,8 @@ import morgan from 'morgan';
 import publicRoutes from './routes/public.js';
 import adminRoutes from './routes/admin.js';
 import clientGalleryRoutes from './routes/clientGalleries.js';
+import { publicRouter as newsletterPublic, adminRouter as newsletterAdmin } from './routes/newsletter.js';
+import { resumeBroadcasts } from './newsletter.js';
 import cmsRoutes from './routes/cms.js';
 import { serveUpload, storageMode } from './storage.js';
 import aiRoutes from './routes/ai.js';
@@ -70,10 +72,12 @@ app.get('/sitemap.xml', sitemap);
 app.get('/llms.txt', llms);
 app.get('/llms-full.txt', llmsFull);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/newsletter', newsletterPublic);
 app.use('/api', publicRoutes);
 app.use('/api/client-galleries', clientGalleryRoutes);
 app.use('/api/admin/cms', requireAdmin, cmsRoutes);
 app.use('/api/admin/ai', requireAdmin, aiRoutes);
+app.use('/api/admin/newsletter', requireAdmin, newsletterAdmin);
 app.use('/api/admin', adminRoutes);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 
@@ -114,6 +118,7 @@ async function connectDb(attempt = 1) {
     await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 15000 });
     console.log('MongoDB connected');
     await ensureAdmin();
+    resumeBroadcasts().catch((e) => console.error('Broadcast resume failed:', e.message));
   } catch (e) {
     console.error(`MongoDB connection failed (attempt ${attempt}): ${e.message.split('\n')[0]}`);
     console.error('  → Check MONGO_URI and that MongoDB Atlas → Network Access allows 0.0.0.0/0. Retrying in 20s…');

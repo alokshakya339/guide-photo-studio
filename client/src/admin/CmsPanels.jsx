@@ -111,6 +111,30 @@ export const TESTIMONIALS = {
   ],
 };
 
+export const BLOG_CATEGORIES = ['Weddings', 'Pre-Wedding', 'Planning tips', 'Films', 'Portraits', 'Corporate', 'Studio'];
+const fmtDay = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+
+export const BLOG = {
+  key: 'blog', viewUrl: (r) => (r?.slug ? `/blog/${r.slug}` : '/blog'), title: 'Blog', singular: 'post', publishField: 'published',
+  description: 'Articles on /blog, newest first. The latest three also appear on the Home page. New posts start hidden: switch them Live when ready.',
+  noReorder: true, orderNote: 'Posts are listed newest first, by their date.',
+  itemTitle: (r) => r.title, itemSub: (r) => [r.published ? null : 'Draft', r.category, fmtDay(r.date)].filter(Boolean).join(' · '),
+  thumb: (r) => r.cover,
+  defaults: { published: false, category: 'Weddings', author: 'Sandeep & Sarthak Chopra' },
+  fields: [
+    { name: 'title', label: 'Title', type: 'text', required: true, placeholder: 'How to plan your wedding day timeline for photos' },
+    { name: 'slug', label: 'URL name', type: 'text', placeholder: 'wedding-day-timeline-for-photos', hint: 'Lowercase with dashes, e.g. /blog/wedding-day-timeline. Leave empty to make it from the title. Changing it later breaks old links.' },
+    { name: 'date', label: 'Date', type: 'date', default: 'today' },
+    { name: 'category', label: 'Category', type: 'select', options: BLOG_CATEGORIES.map((c) => ({ value: c, label: c })) },
+    { name: 'author', label: 'Author', type: 'text', placeholder: 'Sandeep & Sarthak Chopra' },
+    { name: 'cover', label: 'Cover image', type: 'image', hint: 'Shown on the blog card, at the top of the post and when the link is shared.' },
+    { name: 'excerpt', label: 'Short summary', type: 'textarea', hint: 'One or two sentences. Shown on blog cards, at the top of the post and in Google results.' },
+    { name: 'body', label: 'Post', type: 'markdown', rows: 18 },
+    { name: 'tags', label: 'Tags', type: 'tags', placeholder: 'Noida wedding, candid photography, planning' },
+    { name: 'published', label: 'Show on website (Live)', type: 'checkbox' },
+  ],
+};
+
 export const AWARDS = {
   key: 'awards', viewUrl: () => '/about', title: 'Awards & recognition', singular: 'award', publishField: 'published',
   description: 'Awards, honours and press features. The section appears on the Home and Our Studio pages once at least one is live.',

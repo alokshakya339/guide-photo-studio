@@ -11,11 +11,13 @@ import NotFound from './pages/NotFound.jsx';
 import { Blog, Post } from './pages/Blog.jsx';
 import GiftCards from './pages/GiftCards.jsx';
 import Privacy from './pages/Privacy.jsx';
+import Videos from './pages/Videos.jsx';
 
 // Rarely-visited, heavy screens load only when opened (keeps the public site's download small).
 // They are private (noindex), so the server never pre-renders them.
 const ClientLogin = lazy(() => import('./pages/ClientGallery.jsx').then((m) => ({ default: m.ClientLogin })));
 const ClientGallery = lazy(() => import('./pages/ClientGallery.jsx').then((m) => ({ default: m.ClientGallery })));
+const Unsubscribe = lazy(() => import('./pages/Unsubscribe.jsx'));
 const Admin = lazy(() => import('./admin/Admin.jsx'));
 const wait = (el) => <Suspense fallback={<div style={{ minHeight: '60vh' }} />}>{el}</Suspense>;
 
@@ -27,6 +29,7 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="portfolio" element={<Portfolio />} />
         <Route path="portfolio/:slug" element={<Category />} />
+        <Route path="videos" element={<Videos />} />
         <Route path="services" element={<Services />} />
         <Route path="about" element={<About />} />
         <Route path="contact" element={<Contact />} />
@@ -36,6 +39,7 @@ export default function App() {
         <Route path="blog/:slug" element={<Post />} />
         <Route path="client" element={wait(<ClientLogin />)} />
         <Route path="client/:slug" element={wait(<ClientGallery />)} />
+        <Route path="unsubscribe/:token" element={wait(<Unsubscribe />)} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

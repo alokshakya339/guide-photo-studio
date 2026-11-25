@@ -39,7 +39,7 @@ function smtpTransport(p) {
 }
 
 /** Send one email through whichever provider is configured. */
-export async function sendEmail({ subject, text, html, replyTo, to }) {
+export async function sendEmail({ subject, text, html, replyTo, to, fromName = 'BabySteps website', headers }) {
   const p = provider();
   if (!p || !sender()) throw new Error('Email is not configured');
   if (p.name === 'brevo-api') {
@@ -47,7 +47,8 @@ export async function sendEmail({ subject, text, html, replyTo, to }) {
       method: 'POST',
       headers: { 'api-key': p.key, 'content-type': 'application/json', accept: 'application/json' },
       body: JSON.stringify({
-        sender: { name: 'BabySteps website', email: sender() },
+        sender: { name: fromName, email: sender() },
+        ...(headers ? { headers } : {}),
         to: [{ email: to || recipient() }],
         ...(replyTo ? { replyTo: { email: replyTo } } : {}),
         subject, textContent: text, htmlContent: html,
@@ -56,7 +57,7 @@ export async function sendEmail({ subject, text, html, replyTo, to }) {
     if (!res.ok) throw new Error(`Brevo API ${res.status}: ${(await res.text()).slice(0, 200)}`);
     return;
   }
-  await smtpTransport(p).sendMail({ from: `"BabySteps website" <${sender()}>`, to: to || recipient(), replyTo: replyTo || undefined, subject, text, html });
+  await smtpTransport(p).sendMail({ from: `"${fromName.replace(/"/g, '')}" <${sender()}>`, to: to || recipient(), replyTo: replyTo || undefined, subject, text, html, headers });
 }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

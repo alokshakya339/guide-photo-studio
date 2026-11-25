@@ -4,6 +4,7 @@ import { useApi } from '../api.js';
 import { SITE, formatINR } from '../site.js';
 import Gallery from '../components/Gallery.jsx';
 import InquiryForm from '../components/InquiryForm.jsx';
+import CorporateServices from '../components/CorporateServices.jsx';
 import Reels from '../components/Reels.jsx';
 import FilmShowcase from '../components/FilmShowcase.jsx';
 import Awards from '../components/Awards.jsx';
@@ -13,7 +14,8 @@ import FamilyTree from '../components/FamilyTree.jsx';
 import KindWords from '../components/KindWords.jsx';
 import ShootPicker from '../components/ShootPicker.jsx';
 import StickerWall from '../components/StickerWall.jsx';
-import { useTitle, useReveal, CountUp, Loader, ErrorNote } from '../components/common.jsx';
+import { LatestPosts } from './Blog.jsx';
+import { useTitle, useReveal, CountUp, Loader } from '../components/common.jsx';
 import { IconArrow, IconPhone, IconWhatsApp } from '../components/Icons.jsx';
 
 const WORDS = ['emotions', 'rituals', 'promises', 'laughter', 'memories'];
@@ -74,10 +76,15 @@ function Hero() {
 }
 
 function Marquee({ items }) {
-  const row = items.map((t) => <span key={t}>{t}<i aria-hidden="true">✦</i></span>);
+  // The track slides by half its width, so each half must be wider than the widest screen
+  // or the end of the track shows as blank space. Repeat short lists until a half has ~12 items,
+  // and stretch the duration by the same factor so the scroll speed stays constant.
+  const reps = Math.max(1, Math.ceil(12 / Math.max(items.length, 1)));
+  const half = Array.from({ length: reps }, () => items).flat();
+  const row = (copy) => half.map((t, i) => <span key={`${copy}-${i}`}>{t}<i aria-hidden="true">✦</i></span>);
   return (
     <div className="emarquee" aria-hidden="true">
-      <div className="emarquee__track">{row}{row}</div>
+      <div className="emarquee__track" style={{ animationDuration: `${38 * reps}s` }}>{row('a')}{row('b')}</div>
     </div>
   );
 }
@@ -117,8 +124,6 @@ export default function Home() {
       </section>
 
       <Marquee items={[...catNames, 'Wedding Films']} />
-
-      <ShootPicker categories={cats.data || []} />
 
       {/* Full-bleed feature */}
       <section className="efeature">
@@ -191,33 +196,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Collections as numbered chapters */}
-      <section className="esec ework">
-        <div className="container">
-          <div className="ehead" data-reveal>
-            <div>
-              <p className="eyebrow">Portfolio</p>
-              <h2 className="etitle">OUR latest <em>work</em></h2>
-            </div>
-            <Link to="/portfolio" className="elink">See all collections <IconArrow width={14} height={14} /></Link>
-          </div>
-          {cats.loading && <Loader />}
-          <ErrorNote error={cats.error} />
-          <div className="ework__grid">
-            {cats.data?.map((c, n) => (
-              <Link key={c.slug} to={`/portfolio/${c.slug}`} className={`ework__card ework__card--${n}`} data-reveal style={{ '--d': `${(n % 3) * 90}ms` }}>
-                <figure><img src={c.cover} alt={`${c.title} photography`} loading="lazy" /></figure>
-                <span className="ework__num">{pad(n + 1)}</span>
-                <span className="ework__body">
-                  <strong>{c.title}</strong>
-                  <small>{c.tagline}</small>
-                </span>
-                <span className="ework__more">{c.count} photos <IconArrow width={14} height={14} /></span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ShootPicker categories={cats.data || []} />
+
+      <CorporateServices />
 
       {/* Films (dark band) */}
       {(SITE.films?.[0] || SITE.reels?.length > 0) && (
@@ -274,6 +255,8 @@ export default function Home() {
           <p className="ecenter"><Link to="/services" className="ebtn ebtn--line">All packages &amp; FAQs <IconArrow width={16} height={16} /></Link></p>
         </div>
       </section>
+
+      <LatestPosts />
 
       <KindWords items={quotes} />
 

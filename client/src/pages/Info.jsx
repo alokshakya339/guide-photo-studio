@@ -4,6 +4,7 @@ import { useApi } from '../api.js';
 import { SITE, EVENT_TYPES, formatINR } from '../site.js';
 import Gallery from '../components/Gallery.jsx';
 import InquiryForm from '../components/InquiryForm.jsx';
+import CorporateServices from '../components/CorporateServices.jsx';
 import Reels from '../components/Reels.jsx';
 import FilmShowcase from '../components/FilmShowcase.jsx';
 import FilmLibrary from '../components/FilmLibrary.jsx';
@@ -90,6 +91,7 @@ export function Services() {
   useTitle('Services & Pricing');
   const packages = useApi('/packages');
   const faqs = useApi('/faqs');
+  useReveal(packages.data?.length);
   return (
     <>
       <PageHero
@@ -128,6 +130,8 @@ export function Services() {
           </p>
         </div>
       </section>
+
+      <CorporateServices withForm className="ecorp--page" />
 
       <section className="section section--alt">
         <div className="container">

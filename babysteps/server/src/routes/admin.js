@@ -6,7 +6,7 @@ import { ipKeyGenerator } from 'express-rate-limit';
 import { trackedLimiter, listBlocks, clearBlock, limiterInfo } from '../rateLimits.js';
 import mongoose from 'mongoose';
 import { ZipArchive } from 'archiver';
-import { Admin, ClientGallery, Inquiry, GiftCard, Setting, Media, Payment } from '../models.js';
+import { Admin, ClientGallery, Inquiry, GiftCard, Setting, Media, Payment, Subscriber } from '../models.js';
 import { emailEnabled, emailProvider, sendEmail } from '../mailer.js';
 import { storageMode } from '../storage.js';
 import { MAX_ORIGINAL, r2Ready, presignUploads, confirmUploads, resolveGallery, deletePhotoObjects, deleteGalleryObjects, isR2 } from '../r2.js';
@@ -413,12 +413,12 @@ router.get('/storage', async (_req, res) => {
 
 /** Everything except photo files, as one JSON file (galleries include password hashes so a restore keeps logins working). */
 router.get('/backup', async (_req, res) => {
-  const [settings, galleries, inquiries, giftCards, media] = await Promise.all([
-    Setting.find().lean(), ClientGallery.find().select('+passwordHash').lean(), Inquiry.find().lean(), GiftCard.find().lean(), Media.find().lean(),
+  const [settings, galleries, inquiries, giftCards, media, subscribers] = await Promise.all([
+    Setting.find().lean(), ClientGallery.find().select('+passwordHash').lean(), Inquiry.find().lean(), GiftCard.find().lean(), Media.find().lean(), Subscriber.find().lean(),
   ]);
   const stamp = new Date().toISOString().slice(0, 10);
   res.set('Content-Disposition', `attachment; filename="babysteps-backup-${stamp}.json"`);
-  res.json({ app: 'babysteps', version: 1, createdAt: new Date(), settings, galleries, inquiries, giftCards, media });
+  res.json({ app: 'babysteps', version: 1, createdAt: new Date(), settings, galleries, inquiries, giftCards, media, subscribers });
 });
 
 /** All uploaded photos as a zip (GridFS and/or disk). */
@@ -448,6 +448,7 @@ router.post('/restore', async (req, res) => {
   const result = {
     settings: await upsert(Setting, b.settings), galleries: await upsert(ClientGallery, b.galleries),
     inquiries: await upsert(Inquiry, b.inquiries), giftCards: await upsert(GiftCard, b.giftCards), media: await upsert(Media, b.media),
+    subscribers: await upsert(Subscriber, b.subscribers),
   };
   res.json({ ok: true, restored: result });
 });

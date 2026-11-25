@@ -4,14 +4,14 @@ import { STUDIO, REELS } from './data.js';
 import { Label, waLink } from './lib.jsx';
 
 // Each reel is an Instagram reel or a YouTube Short (platform comes from content.js → parseReel).
-const isYt = (r) => r.platform === 'youtube';
-const reelUrl = (r) => (isYt(r) ? `https://www.youtube.com/shorts/${r.id}` : `https://www.instagram.com/reel/${r.id}/`);
-const embedUrl = (r, autoplay = false) => (isYt(r)
+export const isYt = (r) => r.platform === 'youtube';
+export const reelUrl = (r) => (isYt(r) ? `https://www.youtube.com/shorts/${r.id}` : `https://www.instagram.com/reel/${r.id}/`);
+export const embedUrl = (r, autoplay = false) => (isYt(r)
   ? `https://www.youtube-nocookie.com/embed/${r.id}?${new URLSearchParams({ playsinline: 1, rel: 0, modestbranding: 1, loop: 1, playlist: r.id, autoplay: autoplay ? 1 : 0 })}`
   : `https://www.instagram.com/reel/${r.id}/embed/`);
-const coverOf = (r) => r.cover || (isYt(r) ? `https://i.ytimg.com/vi/${r.id}/oar2.jpg` : `/images/reels/${r.id}.jpg`);
+export const coverOf = (r) => r.cover || (isYt(r) ? `https://i.ytimg.com/vi/${r.id}/oar2.jpg` : `/images/reels/${r.id}.jpg`);
 
-function IconPlay(p) {
+export function IconPlay(p) {
   return <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...p}><path d="M8 5.5v13a1 1 0 001.5.86l10.5-6.5a1 1 0 000-1.72L9.5 4.64A1 1 0 008 5.5z" /></svg>;
 }
 function IconExpand(p) {
@@ -79,19 +79,6 @@ export default function Reels({ reels = REELS, title = <>Stories <em>in motion</
     return () => clearTimeout(t);
   }, [active, viewer, near]);
 
-  // Viewer: Esc / arrows, lock scroll.
-  useEffect(() => {
-    if (viewer == null) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') setViewer(null);
-      if (e.key === 'ArrowRight') setViewer((v) => (v + 1) % reels.length);
-      if (e.key === 'ArrowLeft') setViewer((v) => (v - 1 + reels.length) % reels.length);
-    };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
-  }, [viewer, reels.length]);
-
   const go = (d) => scrollToCard(Math.max(0, Math.min(reels.length - 1, active + d)));
   const onCard = (i) => { if (i !== active) scrollToCard(i); };
 
@@ -148,16 +135,35 @@ export default function Reels({ reels = REELS, title = <>Stories <em>in motion</
         <button className="reels-arrow next" aria-label="Next reel" disabled={active === reels.length - 1} onClick={() => go(1)}><Icon name="right" /></button>
       </div>
 
-      {viewer != null && (
-        <div className="reel-viewer" role="dialog" aria-modal="true" aria-label={reels[viewer].title} onClick={() => setViewer(null)}>
-          <button className="lb-btn lb-close" aria-label="Close" onClick={() => setViewer(null)}><Icon name="close" /></button>
-          <button className="lb-btn lb-prev" aria-label="Previous reel" onClick={(e) => { e.stopPropagation(); setViewer((viewer - 1 + reels.length) % reels.length); }}><Icon name="left" /></button>
-          <div className={`rv-frame ${isYt(reels[viewer]) ? 'is-yt' : ''}`} onClick={(e) => e.stopPropagation()} key={viewer}>
-            <iframe src={embedUrl(reels[viewer], true)} title={reels[viewer].title} allow="autoplay; encrypted-media; picture-in-picture; clipboard-write" allowFullScreen />
-          </div>
-          <button className="lb-btn lb-next" aria-label="Next reel" onClick={(e) => { e.stopPropagation(); setViewer((viewer + 1) % reels.length); }}><Icon name="right" /></button>
-        </div>
-      )}
+      {viewer != null && <ReelViewer reels={reels} index={viewer} onChange={setViewer} />}
     </section>
+  );
+}
+
+/** Full-screen player for one reel, with prev/next, Esc and arrow keys. Shared by the carousel and the /videos page. */
+export function ReelViewer({ reels, index, onChange }) {
+  const n = reels.length;
+  const close = () => onChange(null);
+  const step = (d) => onChange((index + d + n) % n);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onChange(null);
+      if (e.key === 'ArrowRight') onChange((v) => (v + 1) % n);
+      if (e.key === 'ArrowLeft') onChange((v) => (v - 1 + n) % n);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+  }, [n, onChange]);
+  const r = reels[index];
+  return (
+    <div className="reel-viewer" role="dialog" aria-modal="true" aria-label={r.title} onClick={close}>
+      <button className="lb-btn lb-close" aria-label="Close" onClick={close}><Icon name="close" /></button>
+      {n > 1 && <button className="lb-btn lb-prev" aria-label="Previous video" onClick={(e) => { e.stopPropagation(); step(-1); }}><Icon name="left" /></button>}
+      <div className={`rv-frame ${isYt(r) ? 'is-yt' : ''}`} onClick={(e) => e.stopPropagation()} key={index}>
+        <iframe src={embedUrl(r, true)} title={r.title} allow="autoplay; encrypted-media; picture-in-picture; clipboard-write" allowFullScreen />
+      </div>
+      {n > 1 && <button className="lb-btn lb-next" aria-label="Next video" onClick={(e) => { e.stopPropagation(); step(1); }}><Icon name="right" /></button>}
+    </div>
   );
 }

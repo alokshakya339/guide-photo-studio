@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const BASE = import.meta.env.VITE_API_URL || '';
 
@@ -28,12 +28,24 @@ export async function api(path, { method = 'GET', body, token, headers: extra } 
 }
 
 /** Simple GET hook: { data, error, loading, reload }. */
+/*
+ * Server-side rendering hand-over. On the server, `collect` records which API paths a page asks for (first pass),
+ * and `data` holds their responses (second pass) so the HTML is rendered with real content. In the browser the same
+ * data arrives in window.__SSR__, so the first render matches the server's HTML and nothing is fetched twice.
+ */
+const ssr = { data: {}, collect: null };
+export function setSsrData(data, collect = null) { ssr.data = data || {}; ssr.collect = collect; }
+
 export function useApi(path, deps = []) {
-  const [state, setState] = useState({ data: null, error: null, loading: true });
+  const has = Boolean(path) && Object.prototype.hasOwnProperty.call(ssr.data, path);
+  if (ssr.collect && path) ssr.collect.add(path);
+  const [state, setState] = useState(() => (has ? { data: ssr.data[path], error: null, loading: false } : { data: null, error: null, loading: true }));
   const [tick, setTick] = useState(0);
+  const preloaded = useRef(has); // already have server data for the first render → skip the first fetch
   useEffect(() => {
     let alive = true;
     if (!path) return undefined;
+    if (preloaded.current) { preloaded.current = false; return undefined; }
     setState((s) => ({ ...s, loading: true }));
     api(path)
       .then((data) => alive && setState({ data, error: null, loading: false }))

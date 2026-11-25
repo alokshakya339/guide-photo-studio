@@ -2,7 +2,8 @@
  * Small, idempotent data migrations run at server start (safe to run on every boot and on production).
  */
 import bcrypt from 'bcryptjs';
-import { Category, Package, Setting, Admin } from './models/index.js';
+import { Category, Package, Setting, Admin, BlogPost } from './models/index.js';
+import { STARTER_POSTS } from './seed/blogPosts.js';
 
 // Shoots that BabySteps by Guide (babystepsbyguide.com) now covers. Hidden on Guide Photo Studio, kept in admin.
 const BABYSTEPS_SLUGS = ['maternity', 'baby', 'birthday'];
@@ -34,5 +35,16 @@ export async function runMigrations() {
     const p = await Package.updateMany({ category: { $in: BABYSTEPS_SLUGS } }, { $set: { published: false } });
     await Setting.create({ key, data: { at: new Date(), categories: c.modifiedCount, packages: p.modifiedCount } });
     console.log(`[migrate] hid ${c.modifiedCount} categories and ${p.modifiedCount} packages now covered by BabySteps`);
+  }
+
+  // 3) Once only: add the starter blog posts (SEO articles) — local and production alike. Only slugs that don't exist
+  //    yet are inserted, and it never runs again, so posts edited or deleted in Admin → Blog stay that way.
+  const blogKey = 'migration:2026-11-starter-blog';
+  if (!(await Setting.exists({ key: blogKey }))) {
+    const have = new Set((await BlogPost.find({ slug: { $in: STARTER_POSTS.map((p) => p.slug) } }).select('slug').lean()).map((p) => p.slug));
+    const fresh = STARTER_POSTS.filter((p) => !have.has(p.slug));
+    if (fresh.length) await BlogPost.insertMany(fresh.map((p) => ({ ...p, date: new Date(p.date), author: 'Guide Photo Studio', published: true })));
+    await Setting.create({ key: blogKey, data: { at: new Date(), added: fresh.map((p) => p.slug) } });
+    console.log(`[migrate] added ${fresh.length} starter blog posts`);
   }
 }

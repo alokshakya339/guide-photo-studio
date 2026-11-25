@@ -129,7 +129,7 @@ function SmartImg({ src, alt }) {
 /**
  * Photo grid that opens the lightbox on click.
  *  layout: 'masonry' (natural shapes) | 'grid' (uniform tiles, reads left→right)
- *  density: 'lg' | 'md' | 'sm'   thumb/full: map src → small / large URL
+ *  density: 'lg' | 'md' | 'sm'   thumb/full: map src → small / large URL (thumb also gets the image: thumb(src, img))
  *  batch: render this many at a time and add more as the visitor scrolls
  *  onDouble(img, i): double-click / double-tap action (e.g. select) with a heart burst
  */
@@ -188,7 +188,7 @@ export default function Gallery({
           return (
             <figure key={key} className={`${layout === 'grid' ? 'pgrid__item' : 'masonry__item'} ${img.favorite ? 'is-fav' : ''}`}>
               <button className="masonry__btn" onClick={() => onClick(img, i)} aria-label={`Open photo ${img.number || i + 1}`}>
-                <SmartImg src={thumb(img.src)} alt={img.alt} />
+                <SmartImg src={thumb(img.src, img)} alt={img.alt} />
                 {burst?.startsWith(`${key}-`) && <span className="burst" aria-hidden="true">♥</span>}
               </button>
               {img.number && <span className="pgrid__num">#{img.number}</span>}

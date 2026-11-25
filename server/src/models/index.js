@@ -71,13 +71,19 @@ const inquirySchema = new Schema(
     message: { type: String, trim: true, maxlength: 3000 },
     source: { type: String, trim: true, maxlength: 60 },
     giftCode: { type: String, trim: true, uppercase: true, maxlength: 20 },
+    company: { type: String, trim: true, maxlength: 120 }, // corporate enquiries
+    designation: { type: String, trim: true, maxlength: 120 },
     status: { type: String, enum: ['new', 'contacted', 'booked', 'closed'], default: 'new' },
   },
   { timestamps: true }
 );
 
 const clientPhotoSchema = new Schema({
-  src: { type: String, required: true },
+  src: { type: String, required: true }, // URL (Drive "link only"), or "r2:<key>" for full-size copies in R2 (web-size version)
+  thumb: String, // "r2:<key>" grid thumbnail (R2 photos only)
+  original: String, // "r2:<key>" untouched file for downloads (R2 photos only)
+  name: { type: String, maxlength: 160 }, // original file name
+  w: Number, h: Number, // pixel size of the web version
   favorite: { type: Boolean, default: false },
   note: { type: String, default: '', maxlength: 500 },
 });
@@ -277,6 +283,24 @@ const reelSchema = new Schema(
   { timestamps: true }
 );
 
+/** Blog / journal posts (/blog). `body` is simple Markdown: ## headings, **bold**, *italic*, [links](url), lists, > quotes, ![images](url). */
+const blogPostSchema = new Schema(
+  {
+    title: { type: String, required: true, trim: true, maxlength: 200 },
+    slug: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 120 },
+    date: { type: Date, default: () => new Date() }, // shown on the post; newest first
+    category: { type: String, default: 'Weddings', trim: true, maxlength: 60 },
+    author: { type: String, default: '', trim: true, maxlength: 120 },
+    cover: { type: String, default: '' },
+    excerpt: { type: String, default: '', maxlength: 400 }, // blog cards, top of the post and search snippets
+    body: { type: String, default: '', maxlength: 60000 },
+    tags: { type: [String], default: [] },
+    published: { type: Boolean, default: false }, // drafts stay hidden until switched on
+    order: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
+
 /** Awards, honours and press features shown in the "Awards & recognition" section. */
 const awardSchema = new Schema(
   {
@@ -334,6 +358,7 @@ export const GiftPayment = model('GiftPayment', giftPaymentSchema);
 export const Admin = model('Admin', adminSchema);
 export const Customer = model('Customer', customerSchema);
 export const Award = model('Award', awardSchema);
+export const BlogPost = model('BlogPost', blogPostSchema);
 export const Media = model('Media', mediaSchema);
 export const Setting = model('Setting', settingSchema);
 export const Film = model('Film', filmSchema);

@@ -1,10 +1,12 @@
 import crypto from 'node:crypto';
+import { Readable } from 'node:stream';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { trackedLimiter, listBlocks, clearBlock, limiterInfo } from '../rateLimits.js';
 import { Admin, Inquiry, Testimonial, ClientGallery, Category, Package, Plan, Application } from '../models/index.js';
 import { accessInfo, accessUntilOf, defaultAccessUntil, FREE_DAYS } from '../access.js';
-import { normalizeImageUrl, resolveVideoLinks } from '../cms/drive.js';
+import { normalizeImageUrl, resolveDriveImageLinks, resolveVideoLinks, resolveDriveImageFiles, fetchDriveFile } from '../cms/drive.js';
+import { MAX_ORIGINAL, r2Ready, presignUploads, confirmUploads, resolveGallery, signedUrl, deletePhotoObjects, deleteGalleryObjects, isR2 } from '../galleryStorage.js';
 import { requireAdmin, signToken } from '../middleware/auth.js';
 
 const router = Router();
@@ -131,9 +133,11 @@ const brandFilter = (brand) => (brand === 'babysteps' ? { brand: 'babysteps' } :
 
 router.get('/client-galleries', async (req, res) => {
   const galleries = await ClientGallery.find(brandFilter(req.query.brand)).sort('-createdAt').lean();
+  const covers = await Promise.all(galleries.map((g) => signedUrl(g.cover)));
   res.json(
-    galleries.map(({ photos, videos = [], ...g }) => ({
+    galleries.map(({ photos, videos = [], ...g }, i) => ({
       ...g,
+      cover: covers[i],
       access: accessInfo({ ...g, photos }),
       photoCount: photos.length,
       videoCount: videos.length,
@@ -142,6 +146,12 @@ router.get('/client-galleries', async (req, res) => {
   );
 });
 
+/** Gallery for the admin UI: R2 photos as signed URLs (each keeps its stored value in `ref`; cover's in `coverRef`). */
+async function safeGallery(g) {
+  const { passwordHash, ...safe } = g.toObject();
+  return { ...(await resolveGallery(safe)), access: accessInfo(g) };
+}
+
 /** Easy-to-type gallery password, e.g. "riya-4827" (based on the client's first name). */
 function makePassword(hint = '') {
   const word = String(hint).toLowerCase().normalize('NFKD').replace(/[^a-z]/g, '').slice(0, 8) || 'guide';
@@ -149,7 +159,7 @@ function makePassword(hint = '') {
 }
 
 router.post('/client-galleries', async (req, res) => {
-  const { slug, title, clientName, clientPhone, clientEmail, eventDate, photos = [], selectionLimit, expiresAt, allowDownload, freeDays } = req.body || {};
+  const { slug, title, clientName, clientPhone, clientEmail, eventDate, driveLinks = '', selectionLimit, expiresAt, allowDownload, freeDays } = req.body || {};
   const brand = req.body?.brand === 'babysteps' ? 'babysteps' : 'guide';
   if (!slug || !title || !clientName) {
     return res.status(400).json({ error: 'Gallery name, title and client name are required' });
@@ -159,7 +169,10 @@ router.post('/client-galleries', async (req, res) => {
   const password = String(req.body?.password || '').trim() || makePassword(String(clientName).split(/\s+/)[0]);
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
-  const srcs = (Array.isArray(photos) ? photos : String(photos).split(/\s+/)).map((s) => normalizeImageUrl(s)).filter(Boolean);
+  // Photos come only from Google Drive (file or shared-folder links).
+  const drive = String(driveLinks).trim() ? await resolveDriveImageLinks(driveLinks) : { images: [], errors: [] };
+  if (drive.errors.length && !drive.images.length) return res.status(400).json({ error: drive.errors.join(' ') });
+  const srcs = drive.images.map((i) => i.url);
   const gallery = await ClientGallery.create({
     slug, brand, title, clientName, clientPhone, clientEmail, eventDate, selectionLimit, expiresAt, allowDownload,
     accessUntil: defaultAccessUntil(new Date(), Number(freeDays) > 0 ? Number(freeDays) : FREE_DAYS()),
@@ -170,7 +183,7 @@ router.post('/client-galleries', async (req, res) => {
   });
   const { passwordHash, ...safe } = gallery.toObject();
   // The plain password is returned ONCE so the studio can share it; only the hash is stored.
-  res.status(201).json({ ...safe, password });
+  res.status(201).json({ ...safe, password, driveErrors: drive.errors });
 });
 
 /** Set a new password (generated if none given). Returned once so it can be shared; the old one stops working. */
@@ -190,13 +203,67 @@ router.get('/client-galleries/:slug', async (req, res) => {
   const g = await ClientGallery.findOne({ slug: req.params.slug }).lean();
   if (!g) return res.status(404).json({ error: 'Not found' });
   const { passwordHash, ...safe } = g;
-  res.json({ ...safe, access: accessInfo(g) });
+  res.json({ ...(await resolveGallery(safe)), access: accessInfo(g) });
 });
 
-/** Add photos (array of URLs) to a client gallery. */
+/* ---------- Copy full size: Google Drive → Cloudflare R2 ----------
+ * The browser can't download from Drive directly (no CORS), so it asks for the folder's file list, fetches each
+ * photo through /client-galleries-drive/file/:id, makes web + thumbnail versions and uploads all three straight
+ * to R2 with presigned URLs. Large galleries never pass through (or time out on) the Node host's upload limits. */
+router.get('/client-galleries-storage', (_req, res) => res.json({ r2: r2Ready() }));
+
+/** Step 1: presigned PUT URLs for up to 50 files. Body: { files: [{ name, type, size, webSize, thumbSize, previewType }] } */
+router.post('/client-galleries/:slug/uploads', async (req, res) => {
+  if (!r2Ready()) return res.status(503).json({ error: 'Cloud storage (R2) is not configured on the server.' });
+  const files = Array.isArray(req.body?.files) ? req.body.files.slice(0, 50) : [];
+  if (!files.length) return res.status(400).json({ error: 'No files' });
+  if (!(await ClientGallery.exists({ slug: req.params.slug }))) return res.status(404).json({ error: 'Not found' });
+  res.json({ uploads: await presignUploads(req.params.slug, files) });
+});
+
+/** Step 2: after the browser uploaded to R2, check the files exist and add them to the gallery. */
+router.post('/client-galleries/:slug/uploads/complete', async (req, res) => {
+  if (!r2Ready()) return res.status(503).json({ error: 'Cloud storage (R2) is not configured on the server.' });
+  const items = Array.isArray(req.body?.uploads) ? req.body.uploads.slice(0, 50) : [];
+  const { photos, errors } = await confirmUploads(req.params.slug, items);
+  // $push keeps parallel batches from overwriting each other.
+  const g = await ClientGallery.findOneAndUpdate({ slug: req.params.slug }, { $push: { photos: { $each: photos } } }, { new: true });
+  if (!g) return res.status(404).json({ error: 'Not found' });
+  if (!g.cover && photos[0]) { g.cover = photos[0].src; await g.save(); }
+  res.status(201).json({ added: photos.length, errors });
+});
+
+/** Photo files ({ id, name }) inside pasted Drive folder / file links. */
+router.post('/client-galleries-drive/list', async (req, res) => {
+  const { files, errors } = await resolveDriveImageFiles(req.body?.text);
+  if (!files.length) return res.status(400).json({ error: errors.join(' ') || 'No Google Drive photos found in those links' });
+  res.json({ files: files.slice(0, 5000), errors });
+});
+
+/** Stream one full-size Drive photo to the admin's browser (which then uploads it to R2). */
+router.get('/client-galleries-drive/file/:id', async (req, res) => {
+  let r;
+  try { r = await fetchDriveFile(req.params.id); } catch (e) { return res.status(e.status || 502).json({ error: e.message }); }
+  const size = Number(r.headers.get('content-length')) || 0;
+  if (size > MAX_ORIGINAL) {
+    r.body?.cancel().catch(() => {});
+    return res.status(413).json({ error: `File is over ${MAX_ORIGINAL / 1048576} MB` });
+  }
+  res.set({
+    'Content-Type': r.headers.get('content-type') || 'application/octet-stream',
+    'Cache-Control': 'no-store',
+    ...(size ? { 'Content-Length': String(size) } : {}),
+  });
+  const name = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(r.headers.get('content-disposition') || '')?.[1];
+  if (name) res.set('X-File-Name', encodeURIComponent(decodeURIComponent(name)));
+  Readable.fromWeb(r.body).on('error', () => res.destroy()).pipe(res);
+});
+
+/** Add photos to a client gallery from pasted Google Drive links (files or shared folders) — Drive only. */
 router.post('/client-galleries/:slug/photos', async (req, res) => {
-  const srcs = (Array.isArray(req.body?.photos) ? req.body.photos : []).map((s) => normalizeImageUrl(s)).filter(Boolean);
-  if (!srcs.length) return res.status(400).json({ error: 'No photos to add' });
+  const { images, errors } = await resolveDriveImageLinks(req.body?.text);
+  if (!images.length) return res.status(400).json({ error: errors.join(' ') || 'Paste a Google Drive folder or photo link' });
+  const srcs = images.map((i) => i.url);
   const g = await ClientGallery.findOne({ slug: req.params.slug });
   if (!g) return res.status(404).json({ error: 'Not found' });
   const existing = new Set(g.photos.map((p) => p.src));
@@ -204,8 +271,7 @@ router.post('/client-galleries/:slug/photos', async (req, res) => {
   fresh.forEach((src) => g.photos.push({ src }));
   if (!g.cover && fresh[0]) g.cover = fresh[0];
   await g.save();
-  const { passwordHash, ...safe } = g.toObject();
-  res.status(201).json({ ...safe, added: fresh.length, skipped: srcs.length - fresh.length, access: accessInfo(g) });
+  res.status(201).json({ ...(await safeGallery(g)), added: fresh.length, skipped: srcs.length - fresh.length, errors });
 });
 
 router.delete('/client-galleries/:slug/photos/:photoId', async (req, res) => {
@@ -214,15 +280,15 @@ router.delete('/client-galleries/:slug/photos/:photoId', async (req, res) => {
   const photo = g.photos.id(req.params.photoId);
   if (!photo) return res.status(404).json({ error: 'Photo not found' });
   const wasCover = g.cover === photo.src;
+  const removed = photo.toObject();
   photo.deleteOne();
   if (wasCover) g.cover = g.photos[0]?.src || '';
   await g.save();
-  const { passwordHash, ...safe } = g.toObject();
-  res.json({ ...safe, access: accessInfo(g) });
+  if (isR2(removed.src)) await deletePhotoObjects(removed); // full-size copies: free the R2 storage too
+  res.json(await safeGallery(g));
 });
 
 /* ---- Films (videos) in a client gallery ---- */
-const safeGallery = (g) => { const { passwordHash, ...safe } = g.toObject(); return { ...safe, access: accessInfo(g) }; };
 
 /** Add videos from pasted links: Drive files / folders, YouTube, or direct video URLs. */
 router.post('/client-galleries/:slug/videos', async (req, res) => {
@@ -235,7 +301,7 @@ router.post('/client-galleries/:slug/videos', async (req, res) => {
   const n = g.videos.length;
   fresh.forEach((v, i) => g.videos.push({ ...v, title: v.title || `Film ${n + i + 1}` }));
   await g.save();
-  res.status(201).json({ ...safeGallery(g), added: fresh.length, skipped: videos.length - fresh.length, errors });
+  res.status(201).json({ ...(await safeGallery(g)), added: fresh.length, skipped: videos.length - fresh.length, errors });
 });
 
 router.patch('/client-galleries/:slug/videos/:videoId', async (req, res) => {
@@ -245,7 +311,7 @@ router.patch('/client-galleries/:slug/videos/:videoId', async (req, res) => {
   if (typeof req.body?.title === 'string') v.title = req.body.title.trim().slice(0, 160);
   if (typeof req.body?.poster === 'string') v.poster = normalizeImageUrl(req.body.poster);
   await g.save();
-  res.json(safeGallery(g));
+  res.json(await safeGallery(g));
 });
 
 router.put('/client-galleries/:slug/videos/order', async (req, res) => {
@@ -256,7 +322,7 @@ router.put('/client-galleries/:slug/videos/order', async (req, res) => {
   const sorted = [...g.videos].sort((a, b) => (rank.get(String(a._id)) ?? 1e9) - (rank.get(String(b._id)) ?? 1e9));
   g.videos = sorted.map((v) => v.toObject());
   await g.save();
-  res.json(safeGallery(g));
+  res.json(await safeGallery(g));
 });
 
 router.delete('/client-galleries/:slug/videos/:videoId', async (req, res) => {
@@ -265,7 +331,7 @@ router.delete('/client-galleries/:slug/videos/:videoId', async (req, res) => {
   if (!v) return res.status(404).json({ error: 'Video not found' });
   v.deleteOne();
   await g.save();
-  res.json(safeGallery(g));
+  res.json(await safeGallery(g));
 });
 
 /** Update the client's contact details. */
@@ -273,7 +339,8 @@ router.patch('/client-galleries/:slug', async (req, res) => {
   const { clientPhone, clientEmail, clientName, title, cover, selectionLimit, allowDownload } = req.body || {};
   const g = await ClientGallery.findOneAndUpdate(
     { slug: req.params.slug },
-    { clientPhone, clientEmail, clientName, title, cover, selectionLimit, allowDownload },
+    // A signed R2 URL expires — covers must be stored as the photo's "r2:" ref (the admin UI sends `ref`).
+    { clientPhone, clientEmail, clientName, title, cover: cover === undefined || !/^https:\/\/[^/]+\.r2\.cloudflarestorage\.com\//.test(cover) ? cover : undefined, selectionLimit, allowDownload },
     { new: true, runValidators: true }
   );
   if (!g) return res.status(404).json({ error: 'Not found' });
@@ -322,7 +389,9 @@ router.patch('/plans/:code', async (req, res) => {
 });
 
 router.delete('/client-galleries/:slug', async (req, res) => {
-  await ClientGallery.findOneAndDelete({ slug: req.params.slug });
+  const g = await ClientGallery.findOneAndDelete({ slug: req.params.slug });
+  // Remove the gallery's R2 files too, so storage isn't paid for after a gallery is gone.
+  if (g) await deleteGalleryObjects(g.slug).catch((e) => console.error('R2 cleanup failed:', e.message));
   res.status(204).end();
 });
 

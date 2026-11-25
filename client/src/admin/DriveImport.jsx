@@ -4,8 +4,12 @@ import { useToast } from '../components/Toast.jsx';
 /**
  * Paste Google Drive photo links (or a shared folder link, or any image URLs), one per line.
  * Resolves them on the server and hands the image URLs to onAdd(urls).
+ * With `onText`, the pasted text is handed over as-is instead (client galleries resolve Drive
+ * links on the server and accept Drive only); it should resolve truthy when photos were added.
+ * With `onCopy`, a "Copy full size" button is shown too (originals copied into cloud storage) and the
+ * plain import becomes "Link only". `locked` disables both while a copy is running.
  */
-export default function DriveImport({ call, onAdd, saveToLibrary = false, compact = false }) {
+export default function DriveImport({ call, onAdd, onText, onCopy, locked = false, driveOnly = false, saveToLibrary = false, compact = false, children }) {
   const toast = useToast();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -15,6 +19,10 @@ export default function DriveImport({ call, onAdd, saveToLibrary = false, compac
     e.preventDefault();
     if (!text.trim()) return;
     setBusy(true);
+    if (onText) {
+      try { if (await onText(text)) setText(''); } finally { setBusy(false); }
+      return;
+    }
     try {
       const { images, errors } = await call('/admin/cms/resolve-links', { method: 'POST', body: { text, saveToLibrary } });
       if (images.length) {
@@ -28,6 +36,12 @@ export default function DriveImport({ call, onAdd, saveToLibrary = false, compac
     } finally {
       setBusy(false);
     }
+  }
+
+  async function copy() {
+    if (!text.trim()) return;
+    setBusy(true);
+    try { if (await onCopy(text)) setText(''); } finally { setBusy(false); }
   }
 
   if (!open) {
@@ -48,12 +62,26 @@ export default function DriveImport({ call, onAdd, saveToLibrary = false, compac
         rows={3}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={'Paste Google Drive photo links (one per line) or a shared folder link\nhttps://drive.google.com/file/d/…/view\nhttps://drive.google.com/drive/folders/…'}
+        placeholder={driveOnly
+          ? 'Paste a shared Google Drive folder link (or photo links, one per line)\nhttps://drive.google.com/drive/folders/…'
+          : 'Paste Google Drive photo links (one per line) or a shared folder link\nhttps://drive.google.com/file/d/…/view\nhttps://drive.google.com/drive/folders/…'}
       />
       <div className="drive__foot">
-        <small className="muted">Share the files or folder as <b>“Anyone with the link can view”</b>. Other image URLs work too.</small>
-        <button className="btn btn--primary btn--sm" disabled={busy || !text.trim()}>{busy ? 'Importing…' : 'Import photos'}</button>
+        {onCopy ? (
+          <small className="muted">
+            Share the folder as <b>“Anyone with the link can view”</b>. <b>Copy full size</b> stores the original photos in the
+            gallery (client downloads are full quality and keep working if the Drive folder changes). <b>Link only</b> is instant
+            but shows Google’s ~2000px version and breaks if the Drive files are removed. Sub-folders need their own link.
+          </small>
+        ) : (
+          <small className="muted">Share the files or folder as <b>“Anyone with the link can view”</b>.{driveOnly ? ' Photos inside sub-folders need their own folder link.' : ' Other image URLs work too.'}</small>
+        )}
+        <span className="drive__btns">
+          {onCopy && <button type="button" className="btn btn--primary btn--sm" onClick={copy} disabled={busy || locked || !text.trim()}>Copy full size</button>}
+          <button className={`btn btn--sm ${onCopy ? 'btn--ghost' : 'btn--primary'}`} disabled={busy || locked || !text.trim()}>{busy && !onCopy ? 'Importing…' : onCopy ? 'Link only' : 'Import photos'}</button>
+        </span>
       </div>
+      {children}
     </form>
   );
 }

@@ -19,6 +19,9 @@ const clipText = (s, n = 160) => { const t = String(s ?? '').replace(/\s+/g, ' '
 const plain = (md) => String(md || '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[#>*_`]/g, ' ').replace(/^\s*-\s+/gm, '');
 const num = (v) => Number(String(v || '').replace(/[^\d]/g, ''));
 
+const OG_IMAGE = '/og-image.jpg';
+const IMAGE_TYPES = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
+
 export const origin = (req) => (process.env.SITE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
 const abs = (o, src) => (!src ? '' : /^https?:\/\//.test(src) ? src : `${o}${src.startsWith('/') ? '' : '/'}${src}`);
 
@@ -66,8 +69,9 @@ function geoFacts(st) {
 async function metaFor(p) {
   const c = await content();
   const parts = p.replace(/\/+$/, '').split('/').filter(Boolean);
-  const base = { title: HOME_TITLE, description: HOME_DESC, image: c.images.newborn, type: 'website' };
-  const page = (title, description, image) => ({ ...base, title: `${title} · ${SITE}`, description: description || base.description, image: image || base.image });
+  // 1200×630 share image for the home page and anything without its own photo (the size social previews expect).
+  const base = { title: HOME_TITLE, description: HOME_DESC, image: OG_IMAGE, imageAlt: `${SITE} — newborn, maternity & cake smash photoshoots in Noida`, type: 'website' };
+  const page = (title, description, image, imageAlt) => ({ ...base, title: `${title} · ${SITE}`, description: description || base.description, image: image || base.image, imageAlt: image ? (imageAlt || `${title} — ${SITE}, Noida`) : base.imageAlt });
 
   if (!parts.length) return base;
   const [a, b] = parts;
@@ -75,17 +79,18 @@ async function metaFor(p) {
     const s = c.sessions.find((x) => x.slug === b);
     if (!s) return { ...page('Page not found'), noindex: true };
     const m = sessionSeo(s);
-    return { ...page(m.title, m.description, s.img), session: s };
+    return { ...page(m.title, m.description, s.img, s.alt), session: s };
   }
   if (a === 'blog' && b) {
     const post = c.blog.find((x) => x.slug === b);
     return post
-      ? { ...page(post.title, clipText(post.excerpt || plain(post.body)), post.cover), type: 'article', published: post.date, post }
+      ? { ...page(post.title, clipText(post.excerpt || plain(post.body)), post.cover, post.title), type: 'article', published: post.date, post }
       : { ...page('Page not found'), noindex: true };
   }
-  const imgFor = { portfolio: c.images.maternity, services: c.images.cake, about: c.images.family, contact: c.images.newborn, blog: c.images.milestone, privacy: c.images.family, 'gift-cards': c.images.birthday };
+  const imgFor = { portfolio: c.images.maternity, videos: c.images.newborn, services: c.images.cake, about: c.images.family, contact: c.images.newborn, blog: c.images.milestone, privacy: c.images.family, 'gift-cards': c.images.birthday };
   const m = pageSeo(a, { sessions: c.sessions, address: c.studio.address, phone: c.studio.phone });
   if (m) return { ...page(m.title, m.description, imgFor[a]), key: a };
+  if (a === 'unsubscribe') return { ...page('Email preferences', 'Manage your BabySteps emails.'), noindex: true };
   if (a === 'client' || a === 'admin') return { ...page(a === 'admin' ? 'Admin' : 'Client Gallery', 'Private area.'), noindex: true };
   return { ...page('Page not found'), noindex: true };
 }
@@ -151,7 +156,7 @@ async function noscriptContent(o, pathname, m) {
   const g = geoFacts(c.studio);
   const h1 = m.title.split(' · ')[0];
   const nav = [
-    ['/', 'Home'], ['/portfolio', 'Portfolio'], ['/services', 'Packages & prices'], ['/about', 'About us'], ['/contact', 'Book a photoshoot'], ['/blog', 'Blog'], ['/gift-cards', 'Gift cards'],
+    ['/', 'Home'], ['/portfolio', 'Portfolio'], ['/videos', 'Videos'], ['/services', 'Packages & prices'], ['/about', 'About us'], ['/contact', 'Book a photoshoot'], ['/blog', 'Blog'], ['/gift-cards', 'Gift cards'],
     ...c.sessions.map((s) => [`/portfolio/${s.slug}`, sessionSeo(s).title]),
     ...c.blog.map((p) => [`/blog/${p.slug}`, p.title]),
   ];
@@ -330,7 +335,7 @@ async function structuredData(o, pathname, m) {
   }
   if (parts.length && !m.noindex) {
     const crumbs = [{ name: 'Home', item: `${o}/` }];
-    const label = { portfolio: 'Portfolio', services: 'Packages & Prices', about: 'About Us', contact: 'Contact', blog: 'Blog', privacy: 'Privacy Policy', 'gift-cards': 'Gift Cards' };
+    const label = { portfolio: 'Portfolio', videos: 'Videos', services: 'Packages & Prices', about: 'About Us', contact: 'Contact', blog: 'Blog', privacy: 'Privacy Policy', 'gift-cards': 'Gift Cards' };
     crumbs.push({ name: label[parts[0]] || parts[0], item: `${o}/${parts[0]}` });
     if (parts[1]) crumbs.push({ name: pageName, item: `${o}/${parts[0]}/${parts[1]}` });
     graph.push({ '@type': 'BreadcrumbList', '@id': `${url}#breadcrumb`, itemListElement: crumbs.map((x, i) => ({ '@type': 'ListItem', position: i + 1, name: x.name, item: x.item })) });
@@ -421,6 +426,7 @@ export function htmlHandler(dist) {
       const g = geoFacts((await content()).studio);
       const url = `${o}${req.path === '/' ? '/' : req.path.replace(/\/+$/, '')}`;
       const img = abs(o, m.image);
+      const imgType = IMAGE_TYPES[String(m.image || '').split('?')[0].split('.').pop().toLowerCase()];
       const priv = ['client', 'admin'].includes(req.path.split('/')[1]);
       const app = priv ? '' : await ssr(dist, req.originalUrl, (await content()).raw);
       const tags = [
@@ -438,17 +444,24 @@ export function htmlHandler(dist) {
         `<meta property="og:title" content="${esc(m.title)}" />`,
         `<meta property="og:description" content="${esc(m.description)}" />`,
         img && `<meta property="og:image" content="${esc(img)}" />`,
+        img.startsWith('https://') && `<meta property="og:image:secure_url" content="${esc(img)}" />`,
+        imgType && `<meta property="og:image:type" content="${imgType}" />`,
+        m.image === OG_IMAGE && '<meta property="og:image:width" content="1200" />',
+        m.image === OG_IMAGE && '<meta property="og:image:height" content="630" />',
+        img && `<meta property="og:image:alt" content="${esc(m.imageAlt || m.title)}" />`,
         '<meta property="og:locale" content="en_IN" />',
         m.published ? `<meta property="article:published_time" content="${esc(m.published)}" />` : '',
         '<meta name="twitter:card" content="summary_large_image" />',
         `<meta name="twitter:title" content="${esc(m.title)}" />`,
         `<meta name="twitter:description" content="${esc(m.description)}" />`,
         img && `<meta name="twitter:image" content="${esc(img)}" />`,
+        img && `<meta name="twitter:image:alt" content="${esc(m.imageAlt || m.title)}" />`,
       ].filter(Boolean).join('\n    ');
       const html = readShell(dist)
         .replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(m.title)}</title>`)
         .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(m.description)}" />`)
         .replace(/\s*<meta property="og:[^>]*>/g, '')
+        .replace(/\s*<meta name="twitter:[^>]*>/g, '')
         .replace(/\s*<meta name="geo\.[^>]*>/g, '')
         .replace('<div id="root"></div>', app
           ? `<div id="root" data-ssr>${app}</div>`
@@ -477,7 +490,7 @@ export async function sitemap(req, res) {
   const c = await content();
   const latest = c.blog.map((p) => p.date).filter(Boolean).sort().pop();
   const urls = [
-    ['/', '1.0', latest], ['/portfolio', '0.9'], ['/services', '0.9'], ['/about', '0.7'], ['/contact', '0.8'], ['/blog', '0.7', latest], ['/gift-cards', '0.6'], ['/privacy', '0.3'],
+    ['/', '1.0', latest], ['/portfolio', '0.9'], ['/videos', '0.7'], ['/services', '0.9'], ['/about', '0.7'], ['/contact', '0.8'], ['/blog', '0.7', latest], ['/gift-cards', '0.6'], ['/privacy', '0.3'],
     ...c.sessions.map((s) => [`/portfolio/${s.slug}`, '0.9', null, s.img]),
     ...c.blog.map((p) => [`/blog/${p.slug}`, '0.6', p.date, p.cover]),
   ];
@@ -511,7 +524,7 @@ async function llmsText(o, full) {
   L.push('## Photoshoots and starting prices', '');
   c.sessions.forEach((s) => L.push(`- [${sessionSeo(s).title}](${o}/portfolio/${s.slug}): ${s.text}${s.when ? ` Best time: ${s.when}.` : ''}${s.from ? ` From ₹${s.from}.` : ''}`));
   L.push('', '## Pages', '');
-  [['Packages & prices', '/services', 'every package, inclusions and add-ons'], ['Portfolio', '/portfolio', 'sample work by session type'], ['About us', '/about', 'the photographers and studio'], ['Contact & booking', '/contact', 'enquiry form, WhatsApp, map'], ['Gift cards', '/gift-cards', 'buy a photoshoot as a gift']]
+  [['Packages & prices', '/services', 'every package, inclusions and add-ons'], ['Portfolio', '/portfolio', 'sample work by session type'], ['Videos', '/videos', 'reels, behind the scenes and podcast'], ['About us', '/about', 'the photographers and studio'], ['Contact & booking', '/contact', 'enquiry form, WhatsApp, map'], ['Gift cards', '/gift-cards', 'buy a photoshoot as a gift']]
     .forEach(([n, u, d]) => L.push(`- [${n}](${o}${u}): ${d}`));
   L.push('', '## Guides', '');
   c.blog.forEach((p) => L.push(`- [${p.title}](${o}/blog/${p.slug}): ${p.excerpt || ''}`));

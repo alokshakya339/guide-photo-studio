@@ -11,3 +11,4 @@ deploy/hostinger.env
 # build artifacts / logs
 *.zip
 *.log
+client/dist-ssr/

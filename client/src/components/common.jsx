@@ -121,3 +121,13 @@ export function FilmPlayer({ id, title, subtitle, poster }) {
     </figure>
   );
 }
+
+/**
+ * False on the server and during the first (hydrating) browser render, true after mount. Portals and other
+ * browser-only UI wait for it, so the browser's first render matches the server-rendered HTML.
+ */
+export function useMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted;
+}

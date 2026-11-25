@@ -5,12 +5,14 @@ import { Logo } from './Decor.jsx';
 import { STUDIO, JOURNEY, IMG } from './data.js';
 import { waLink, pad } from './lib.jsx';
 import InstallApp from './InstallApp.jsx';
+import NewsletterSignup from './NewsletterSignup.jsx';
 
-const NAV_L = [['/portfolio', 'Portfolio'], ['/services', 'Services & Pricing'], ['/about', 'Our Studio'], ['/blog', 'Blog']];
-const NAV_R = [['/contact', 'Contact']];
+const NAV_L = [['/portfolio', 'Portfolio'], ['/videos', 'Videos'], ['/services', 'Pricing'], ['/about', 'Our Studio'], ['/blog', 'Blog']];
+const NAV_R = [['/gift-cards', 'Gift Cards']];
 const MENU = [
   ['/', 'Home', 'Start here'],
   ['/portfolio', 'Portfolio', 'Maternity, newborn, baby & family'],
+  ['/videos', 'Videos', 'Reels, behind the scenes & podcast'],
   ['/services', 'Services & Pricing', 'Packages, process & FAQs'],
   ['/about', 'Our Studio', 'Our story & the team'],
   ['/blog', 'Blog', 'Guides & tips for parents'],
@@ -138,6 +140,8 @@ function Footer() {
         {strip().map((src) => <img key={src} src={src} alt="" loading="lazy" />)}
         <span className="footer-strip-cta"><Icon name="insta" size={20} /> {handle}</span>
       </a>
+
+      <NewsletterSignup />
 
       <div className="wrap footer-grid">
         <div className="footer-brand">

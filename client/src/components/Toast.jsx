@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useMounted } from './common.jsx';
 
 const ToastCtx = createContext(() => {});
 
@@ -13,6 +14,7 @@ let seq = 0;
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
+  const mounted = useMounted();
   const dismiss = useCallback((id) => setToasts((t) => t.map((x) => (x.id === id ? { ...x, leaving: true } : x))), []);
   const remove = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), []);
   const toast = useCallback((opts) => {
@@ -25,7 +27,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastCtx.Provider value={toast}>
       {children}
-      {createPortal(
+      {mounted && createPortal( /* added after mount: no portals in server-rendered HTML */
         <div className="toasts" aria-live="polite" aria-relevant="additions">
           {toasts.map((t) => <ToastItem key={t.id} t={t} onDismiss={() => dismiss(t.id)} onGone={() => remove(t.id)} />)}
         </div>,

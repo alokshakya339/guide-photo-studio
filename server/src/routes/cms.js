@@ -13,7 +13,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
-import { Award, Media, Setting, Film, Reel, MusicTrack, Category, Package, Faq, Job, Testimonial } from '../models/index.js';
+import { Award, BlogPost, Media, Setting, Film, Reel, MusicTrack, Category, Package, Faq, Job, Testimonial } from '../models/index.js';
 import { DEFAULT_SITE, youtubeId } from '../cms/defaults.js';
 import { normalizeImageUrl, resolveImageLinks } from '../cms/drive.js';
 import { putMedia, deleteMedia, storageReady } from '../invites/storage.js';
@@ -354,6 +354,23 @@ const COLLECTIONS = {
     },
   },
   testimonials: { model: Testimonial },
+  blog: {
+    model: BlogPost,
+    prepare: async (b, existing) => {
+      // URL name: typed one, else made from the title. Editing only the title keeps the old URL (links don't break).
+      if (b.slug != null || (b.title != null && !existing)) {
+        const from = String(b.slug || '').trim() || String(b.title ?? existing?.title ?? '');
+        b.slug = String(from).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 120);
+        if (!b.slug) throw Object.assign(new Error('Add a title (or a URL name) for the post'), { status: 400 });
+      }
+      if (b.tags != null) b.tags = toList(b.tags).map((t) => t.replace(/^#/, '')).slice(0, 20);
+      if (b.cover != null) b.cover = normalizeImageUrl(b.cover);
+      if (b.date === '') b.date = new Date();
+      return b;
+    },
+    // No listProjection: the admin editor fills its form from these rows, so they must include `body`.
+    sort: { date: -1, createdAt: -1 }, // newest first, like the website
+  },
   awards: {
     model: Award,
     prepare: async (b) => {
@@ -378,7 +395,7 @@ const clean = (body) => {
 router.get('/:collection', async (req, res) => {
   const c = collection(req, res);
   if (!c) return;
-  const rows = await c.model.find().sort({ order: 1, createdAt: 1 }).lean();
+  const rows = await c.model.find().sort(c.sort || { order: 1, createdAt: 1 }).lean();
   res.json(c.listProjection ? rows.map(c.listProjection) : rows);
 });
 

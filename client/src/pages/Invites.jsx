@@ -154,9 +154,9 @@ export default function Invites() {
             <p className="eyebrow">Create your invitation</p>
             <h2 className="etitle">Let’s create <em>yours</em></h2>
             <ol className="ivbuy">
-              <li><b>Log in</b> or create a free account</li>
-              <li><b>Create &amp; preview</b> — names, events, photos, music</li>
-              <li><b>Pay &amp; publish</b> — it’s live instantly, share on WhatsApp</li>
+              <li><span><b>Log in</b> or create a free account</span></li>
+              <li><span><b>Create &amp; preview</b> — names, events, photos, music</span></li>
+              <li><span><b>Pay &amp; publish</b> — it’s live instantly, share on WhatsApp</span></li>
             </ol>
             <div className="eclose__quick">
               <Link to="/account?new=signature" className="ebtn ebtn--dark">Start creating <IconArrow width={16} height={16} /></Link>

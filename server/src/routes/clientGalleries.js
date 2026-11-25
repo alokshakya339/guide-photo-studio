@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { ClientGallery, Plan } from '../models/index.js';
 import { requireGalleryAccess, signToken } from '../middleware/auth.js';
 import { accessInfo, accessUntilOf, extendAccess } from '../access.js';
+import { resolveGallery, signedUrl } from '../galleryStorage.js';
 import {
   paymentMode, createSubscription, fetchSubscription, cancelSubscription, verifyCheckoutSignature, addPeriod,
 } from '../payments/razorpay.js';
@@ -67,14 +68,15 @@ router.get('/:slug', requireGalleryAccess, async (req, res) => {
       error: 'Your free gallery period has ended.',
       locked: true,
       gallery: {
-        title: gallery.title, clientName: gallery.clientName, cover: gallery.cover,
+        title: gallery.title, clientName: gallery.clientName, cover: await signedUrl(gallery.cover),
         photoCount: gallery.photos.length, videoCount: (gallery.videos || []).length, favoriteCount: gallery.photos.filter((p) => p.favorite).length,
       },
       access, plans, billing: billingInfo(),
     });
   }
   const { subscription, ...rest } = gallery;
-  res.json({ ...rest, access, plans, billing: billingInfo() });
+  // Full-size copies in R2 → signed URLs; download links only when the studio allows downloads.
+  res.json({ ...(await resolveGallery(rest, { downloads: gallery.allowDownload !== false })), access, plans, billing: billingInfo() });
 });
 
 /** Toggle a favourite / album pick, or save a note on one photo. */

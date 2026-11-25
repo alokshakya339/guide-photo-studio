@@ -113,6 +113,39 @@ const paymentSchema = new Schema({
   paidAt: Date,
 }, { timestamps: true });
 
+/** Someone who agreed to receive studio emails (footer sign-up, or added by the admin). */
+const subscriberSchema = new Schema({
+  email: { type: String, required: true, unique: true, trim: true, lowercase: true, maxlength: 160 },
+  name: { type: String, trim: true, maxlength: 120, default: '' },
+  status: { type: String, enum: ['subscribed', 'unsubscribed'], default: 'subscribed', index: true },
+  source: { type: String, trim: true, maxlength: 40, default: 'website' }, // website | admin | enquiry | gift-card | client
+  token: { type: String, required: true, unique: true }, // secret for the unsubscribe link
+  unsubscribedAt: Date,
+}, { timestamps: true });
+
+/** One email sent to every subscriber. `delivered` lets a paused / interrupted send resume without duplicates. */
+const broadcastSchema = new Schema({
+  subject: { type: String, required: true, trim: true, maxlength: 150 },
+  preheader: { type: String, trim: true, maxlength: 150, default: '' },
+  heading: { type: String, trim: true, maxlength: 150, default: '' },
+  body: { type: String, required: true, maxlength: 20000 },
+  image: { type: String, trim: true, maxlength: 1000, default: '' },
+  buttonText: { type: String, trim: true, maxlength: 60, default: '' },
+  buttonUrl: { type: String, trim: true, maxlength: 1000, default: '' },
+  site: { type: String, default: '' }, // absolute site URL for links in the email
+  status: { type: String, enum: ['sending', 'paused', 'cancelled', 'sent'], default: 'sending' },
+  total: { type: Number, default: 0 },
+  sent: { type: Number, default: 0 },
+  failed: { type: Number, default: 0 },
+  note: { type: String, default: '' }, // why it paused, last error…
+  waitingUntil: Date, // daily limit reached: sending carries on automatically at this time
+  delivered: { type: [String], default: [], select: false },
+  startedAt: Date,
+  finishedAt: Date,
+}, { timestamps: true });
+
+export const Subscriber = model('Subscriber', subscriberSchema);
+export const Broadcast = model('Broadcast', broadcastSchema);
 export const Inquiry = model('Inquiry', inquirySchema);
 export const Payment = model('Payment', paymentSchema);
 export const GiftCard = model('GiftCard', giftCardSchema);

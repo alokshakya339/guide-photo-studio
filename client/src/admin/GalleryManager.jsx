@@ -2,13 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '../components/Toast.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 import { Lightbox } from '../components/Gallery.jsx';
-import { Uploader, MediaPicker } from './media.jsx';
 import CredentialsModal from './Credentials.jsx';
 import DriveImport from './DriveImport.jsx';
 import GalleryFilms from './GalleryFilms.jsx';
+import { uploadToR2 } from './r2Upload.js';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const fileName = (src) => decodeURIComponent(String(src).split('/').pop().split('?')[0]);
+// Full-size copies carry their original file name; signed storage URLs don't make readable names.
+const photoName = (p) => p.name || fileName(p.src);
+// Stored value of a photo ("r2:<key>" for full-size copies — their `src` is a temporary signed URL).
+const refOf = (p) => p.ref || p.src;
 
 /** Admin view of one client gallery: every photo, the client's picks and notes, add / remove photos. */
 export default function GalleryManager({ slug, call, token, onBack, onChanged }) {
@@ -16,61 +20,112 @@ export default function GalleryManager({ slug, call, token, onBack, onChanged })
   const [g, setG] = useState(null);
   const dialog = useDialog();
   const [filter, setFilter] = useState('all');
-  const [picker, setPicker] = useState(false);
   const [creds, setCreds] = useState(false);
   const [view, setView] = useState(null);
   const [error, setError] = useState('');
+  const [r2, setR2] = useState(false); // cloud storage configured → "Copy full size" available
+  const [progress, setProgress] = useState(null); // { done, total, failed, current } while copying
 
   const load = useCallback(() => call(`/admin/client-galleries/${slug}`).then(setG).catch((e) => setError(e.message)), [call, slug]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { call('/admin/client-galleries-storage').then((r) => setR2(Boolean(r.r2))).catch(() => setR2(false)); }, [call]);
+  // Closing the tab mid-copy would stop it — ask first.
+  useEffect(() => {
+    if (!progress) return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [progress]);
 
   if (error) return <div><button className="btn btn--ghost btn--sm" onClick={onBack}>← All galleries</button><p className="note note--error">{error}</p></div>;
   if (!g) return <p className="muted">Loading gallery…</p>;
 
   const picks = g.photos.filter((p) => p.favorite);
   const shown = filter === 'picks' ? picks : filter === 'notes' ? g.photos.filter((p) => p.note) : g.photos;
-  const images = shown.map((p) => ({ ...p, alt: fileName(p.src) }));
+  const images = shown.map((p) => ({ ...p, alt: photoName(p) }));
+  const coverRef = g.coverRef ?? g.cover;
 
-  async function addPhotos(urls) {
-    if (!urls.length) return;
+  // Photos come only from Google Drive: the server reads the pasted folder / photo links.
+  async function addFromDrive(text) {
     try {
-      const r = await call(`/admin/client-galleries/${slug}/photos`, { method: 'POST', body: { photos: urls } });
+      const r = await call(`/admin/client-galleries/${slug}/photos`, { method: 'POST', body: { text } });
       setG(r);
       onChanged?.();
+      const notes = [r.skipped ? `${r.skipped} already in the gallery were skipped.` : '', r.errors?.length ? `Skipped: ${r.errors.join(' ')}` : ''].filter(Boolean).join(' ');
       toast({
-        title: `${r.added} photo${r.added === 1 ? '' : 's'} added to the gallery`,
-        message: r.skipped ? `${r.skipped} already in the gallery were skipped.` : `${g.clientName} can see them now.`,
+        type: r.errors?.length ? 'info' : undefined,
+        title: `${r.added} photo${r.added === 1 ? '' : 's'} added from Google Drive`,
+        message: notes || `${g.clientName} can see them now.`,
       });
+      return true;
     } catch (err) {
       toast({ type: 'error', title: 'Couldn’t add photos', message: err.message });
+      return false;
+    }
+  }
+
+  // Copy full size: every photo in the Drive folder(s) is downloaded and stored in cloud storage (R2).
+  async function copyFromDrive(text) {
+    let list;
+    try {
+      list = await call('/admin/client-galleries-drive/list', { method: 'POST', body: { text } });
+    } catch (err) {
+      toast({ type: 'error', title: 'Couldn’t read the Drive folder', message: err.message });
+      return false;
+    }
+    const n = list.files.length;
+    const ok = await dialog.confirm({
+      title: `Copy ${n} photo${n === 1 ? '' : 's'} from Drive?`,
+      message: `Full-size originals are copied into ${g.clientName}’s gallery, so they keep working even if the Drive folder changes later.${list.errors.length ? ` (${list.errors.length} link${list.errors.length === 1 ? '' : 's'} skipped: ${list.errors.join(' ')})` : ''} Keep this screen open until it finishes. On a phone, Wi-Fi is best.`,
+      confirmLabel: `Copy ${n} photo${n === 1 ? '' : 's'}`,
+    });
+    if (!ok) return false;
+    setProgress({ done: 0, total: n, failed: 0, current: '' });
+    try {
+      const { added, errors } = await uploadToR2({ slug, drive: list.files, token, onProgress: setProgress });
+      await load();
+      onChanged?.();
+      toast({
+        type: errors.length ? (added ? 'info' : 'error') : undefined,
+        title: `${added} photo${added === 1 ? '' : 's'} copied from Drive`,
+        message: errors.length ? `${errors.length} failed: ${errors.slice(0, 3).join(' · ')}${errors.length > 3 ? ' …' : ''}` : `${g.clientName} can see them now, in full quality.`,
+        duration: errors.length ? 12000 : undefined,
+      });
+      return added > 0;
+    } catch (err) {
+      toast({ type: 'error', title: 'Copy stopped', message: err.message });
+      await load();
+      return false;
+    } finally {
+      setProgress(null);
     }
   }
 
   async function remove(p) {
     const ok = await dialog.confirm({
       title: 'Remove this photo from the gallery?',
-      message: p.favorite ? `${g.clientName} picked this photo for their album. It will be removed from their selection too.` : `${fileName(p.src)} will no longer be visible to ${g.clientName}.`,
-      tone: 'danger', images: [p.src], confirmLabel: 'Remove photo',
+      message: p.favorite ? `${g.clientName} picked this photo for their album. It will be removed from their selection too.` : `${photoName(p)} will no longer be visible to ${g.clientName}.`,
+      tone: 'danger', images: [p.thumb || p.src], confirmLabel: 'Remove photo',
     });
     if (!ok) return;
     try {
       setG(await call(`/admin/client-galleries/${slug}/photos/${p._id}`, { method: 'DELETE' }));
       onChanged?.();
-      toast({ title: 'Photo removed', message: `${fileName(p.src)} is no longer in the gallery.` });
+      toast({ title: 'Photo removed', message: `${photoName(p)} is no longer in the gallery.` });
     } catch (err) {
       toast({ type: 'error', title: 'Couldn’t remove photo', message: err.message });
     }
   }
 
   async function setCover(p) {
-    await call(`/admin/client-galleries/${slug}`, { method: 'PATCH', body: { cover: p.src } });
-    setG((x) => ({ ...x, cover: p.src }));
+    await call(`/admin/client-galleries/${slug}`, { method: 'PATCH', body: { cover: refOf(p) } });
+    setG((x) => ({ ...x, cover: p.src, coverRef: refOf(p) }));
     onChanged?.();
     toast({ title: 'Cover photo updated', duration: 2500 });
   }
 
   async function copyPicks() {
-    const list = picks.map((p) => `${fileName(p.src)}${p.note ? `  — note: ${p.note}` : ''}`).join('\n');
+    const list = picks.map((p) => `${photoName(p)}${p.note ? `  — note: ${p.note}` : ''}`).join('\n');
     try {
       await navigator.clipboard.writeText(list);
       toast({ type: 'info', title: `${picks.length} picked file names copied`, message: 'Paste them for your editor or album designer.' });
@@ -148,12 +203,15 @@ export default function GalleryManager({ slug, call, token, onBack, onChanged })
         </div>
       </header>
 
-      <section className="gm__add">
-        <Uploader token={token} folder={`client-${slug}`} compact onUploaded={(items) => addPhotos(items.map((m) => m.url))} />
-        <button className="btn btn--ghost" onClick={() => setPicker(true)}>Choose from media library</button>
-      </section>
-      <p className="muted small">Photos you upload here go straight into this gallery (and are kept in the media library under “client-{slug}”).</p>
-      <DriveImport call={call} compact onAdd={addPhotos} />
+      <DriveImport call={call} driveOnly onText={addFromDrive} onCopy={r2 ? copyFromDrive : undefined} locked={Boolean(progress)}>
+        {progress && (
+          <div className="drive__progress" role="status">
+            <span><b>Copying from Drive {progress.done} / {progress.total}</b>{progress.failed ? ` · ${progress.failed} failed` : ''}</span>
+            <span className="drive__progress-bar"><i style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }} /></span>
+            {progress.current && <small>{progress.current}</small>}
+          </div>
+        )}
+      </DriveImport>
 
       <GalleryFilms g={g} setG={setG} call={call} onChanged={onChanged} />
 
@@ -166,22 +224,22 @@ export default function GalleryManager({ slug, call, token, onBack, onChanged })
       </div>
 
       {images.length === 0 ? (
-        <p className="muted gm__empty">{filter === 'all' ? 'No photos yet. Upload some above.' : 'Nothing here yet.'}</p>
+        <p className="muted gm__empty">{filter === 'all' ? 'No photos yet. Paste a Google Drive folder link above.' : 'Nothing here yet.'}</p>
       ) : (
         <div className="gm__grid">
           {images.map((p, i) => (
             <figure key={p._id} className={`gm__item ${p.favorite ? 'is-pick' : ''}`}>
               <button type="button" className="gm__thumb" onClick={() => setView(i)} aria-label={`View ${p.alt}`}>
-                <img src={p.src} alt="" loading="lazy" />
+                <img src={p.thumb || p.src} alt="" loading="lazy" />
                 {p.favorite && <span className="gm__heart" title="Picked by the client">♥</span>}
-                {g.cover === p.src && <span className="gm__badge">Cover</span>}
+                {coverRef === refOf(p) && <span className="gm__badge">Cover</span>}
               </button>
               <figcaption>
                 <span title={p.alt}>{p.alt}</span>
                 {p.note && <q title={p.note}>{p.note}</q>}
               </figcaption>
               <div className="gm__ctl">
-                <button type="button" onClick={() => setCover(p)} disabled={g.cover === p.src}>Set cover</button>
+                <button type="button" onClick={() => setCover(p)} disabled={coverRef === refOf(p)}>Set cover</button>
                 <button type="button" onClick={() => remove(p)}>Remove</button>
               </div>
             </figure>
@@ -190,7 +248,6 @@ export default function GalleryManager({ slug, call, token, onBack, onChanged })
       )}
 
       {view != null && <Lightbox images={images} index={view} onIndex={setView} onClose={() => setView(null)} />}
-      {picker && <MediaPicker call={call} token={token} multiple onClose={() => setPicker(false)} onPick={(urls) => { setPicker(false); addPhotos(urls); }} />}
       {creds && <CredentialsModal gallery={g} call={call} onClose={() => setCreds(false)} />}
     </div>
   );

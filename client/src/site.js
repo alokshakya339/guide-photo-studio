@@ -80,6 +80,23 @@ export const SITE = {
 };
 
 /** Merge CMS content from /api/site into SITE (static values above are the offline fallback). */
+/** Merge CMS content (from /api/site) into SITE. Also used by server-side rendering and when hydrating its HTML. */
+const SITE_DEFAULTS = JSON.parse(JSON.stringify(SITE));
+export function applySite(data) {
+  if (!data) return;
+  Object.entries(data).forEach(([k, v]) => {
+    if (v == null) return;
+    // films/reels are managed in the CMS: an empty list means "none published". Other empty lists keep the fallback.
+    if (!['films', 'reels', 'awards'].includes(k) && Array.isArray(v) && v.length === 0 && Array.isArray(SITE[k]) && SITE[k].length) return;
+    SITE[k] = v;
+  });
+}
+/** Server-side rendering only: start each page from the bundled defaults again. */
+export function resetSite() {
+  Object.keys(SITE).forEach((k) => { if (!(k in SITE_DEFAULTS)) delete SITE[k]; });
+  Object.assign(SITE, JSON.parse(JSON.stringify(SITE_DEFAULTS)));
+}
+
 export async function loadSite() {
   try {
     const ctrl = new AbortController();
@@ -88,12 +105,7 @@ export async function loadSite() {
     clearTimeout(t);
     if (!res.ok) return;
     const data = await res.json();
-    Object.entries(data).forEach(([k, v]) => {
-      if (v == null) return;
-      // films/reels are managed in the CMS: an empty list means "none published". Other empty lists keep the fallback.
-      if (!['films', 'reels', 'awards'].includes(k) && Array.isArray(v) && v.length === 0 && Array.isArray(SITE[k]) && SITE[k].length) return;
-      SITE[k] = v;
-    });
+    applySite(data);
     if (data.name) document.title = document.title.replace('Guide Photo Studio', data.name);
   } catch {
     /* offline / API down: keep the bundled defaults */
@@ -121,6 +133,19 @@ export function downloadUrl(src) {
 }
 
 export const EVENT_TYPES = ['Wedding', 'Wedding Film', 'Pre-Wedding', 'Head Shots', 'Product Shoot', 'Digital Invitation', 'Other'];
+
+/** Corporate services: listed on Home and offered in the corporate enquiry form. */
+export const CORPORATE_SERVICES = [
+  'Corporate Events & Conference Photography',
+  'Corporate Films & Company Profile Videos',
+  'Employee & Executive Headshots',
+  'Industrial & Factory Photography',
+  'Product & Commercial Photography',
+  'Brand Films & Promotional Videos',
+  'Social Media Content & Reels',
+  'Annual Reports & Corporate Documentation',
+  'Interviews, Testimonials & Podcasts',
+];
 
 export const formatINR = (n) =>
   n == null ? 'On request' : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);

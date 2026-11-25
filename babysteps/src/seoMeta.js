@@ -43,6 +43,7 @@ export function pageSeo(key, { sessions = [], address = '', phone = '' } = {}) {
   const from = minPrice(sessions);
   const map = {
     portfolio: ['Newborn, Maternity & Baby Photoshoot Portfolio', 'See real newborn, maternity, baby milestone, cake smash and family photoshoots from our studio in Sector 37, Noida.'],
+    videos: ['Baby & Maternity Photoshoot Videos', 'Watch reels, behind-the-scenes clips and podcast episodes from our newborn, maternity and baby photoshoots in Sector 37, Noida.'],
     services: ['Photoshoot Packages & Prices in Noida', `Newborn, maternity, baby milestone, cake smash & family photoshoot packages in Noida${from ? ` from ₹${from}` : ''}. Clear prices, gowns & props included, add-ons listed.`],
     about: ['Newborn & Maternity Photographers in Noida', 'Meet Tanya & Sarthak Chopra, the husband-wife newborn, maternity and baby photographers behind BabySteps Guide Studio in Sector 37, Noida.'],
     contact: ['Book a Baby or Maternity Photoshoot in Noida', clip(`Book your newborn, maternity or baby photoshoot in Noida.${address ? ` Studio: ${address}.` : ''}${phone ? ` Call or WhatsApp ${phone}.` : ''}`)],

@@ -96,6 +96,7 @@ export function Login() {
         {err && <p className="acct-alert" role="alert">{err}</p>}
         <button className="ebtn ebtn--dark acct-form__submit" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
         <p className="acct-form__alt">New here? <Link to={`/account/register${q.get('next') ? `?next=${encodeURIComponent(next)}` : ''}`} className="acct-link">Create an account</Link></p>
+        <p className="acct-form__alt">Looking for your wedding photos? <Link to="/client" className="acct-link">Client gallery login</Link></p>
       </form>
     </AuthShell>
   );

@@ -169,3 +169,7 @@
 .ivx__pane > *, .acct-buy > * { min-width: 0; }
 .acct-share b, .acct-share .acct__muted, .ivx__locked { overflow-wrap: anywhere; }
 @media (max-width: 640px) { .acct-buy { padding: 16px 14px; } }
+/* Header "Client gallery" link (components/Layout.jsx): show the full label, not the 9-character account-name cap. */
+.nav__gallery span { max-width: none; }
+/* Mid-width desktops: the full menu plus "Client gallery" text doesn't fit — show just the lock icon. */
+@media (max-width: 1260px) { .nav__actions > .nav__gallery span { display: none; } }

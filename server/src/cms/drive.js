@@ -35,7 +35,7 @@ const decodeHtml = (s) => s.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replac
  * No API key: read Google's public "embedded folder view" page, which lists the files of a folder
  * shared as "Anyone with the link". Only image files are kept (by file extension).
  */
-async function listPublicFolderWithoutKey(folderId, kind = 'image') {
+async function listPublicFolderWithoutKey(folderId, kind = 'image', raw = false) {
   const EXT = kind === 'video' ? VIDEO_EXT : IMAGE_EXT;
   const r = await fetch(`https://drive.google.com/embeddedfolderview?id=${encodeURIComponent(folderId)}`, {
     headers: { 'User-Agent': 'Mozilla/5.0 (photo-gallery importer)', 'Accept-Language': 'en' },
@@ -66,13 +66,13 @@ async function listPublicFolderWithoutKey(folderId, kind = 'image') {
     throw e;
   }
   files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return kind === 'video' ? files : files.map((f) => ({ url: driveImageUrl(f.id), name: f.name }));
+  return kind === 'video' || raw ? files : files.map((f) => ({ url: driveImageUrl(f.id), name: f.name }));
 }
 
 /** List image files in a public Drive folder. Uses the Drive API when GOOGLE_API_KEY is set, otherwise the public folder page. */
-export async function listDriveFolder(folderId, kind = 'image') {
+export async function listDriveFolder(folderId, kind = 'image', raw = false) {
   const key = process.env.GOOGLE_API_KEY;
-  if (!key) return listPublicFolderWithoutKey(folderId, kind);
+  if (!key) return listPublicFolderWithoutKey(folderId, kind, raw);
   const files = [];
   let pageToken = '';
   do {
@@ -97,7 +97,7 @@ export async function listDriveFolder(folderId, kind = 'image') {
     files.push(...(data.files || []));
     pageToken = data.nextPageToken || '';
   } while (pageToken && files.length < 5000);
-  if (kind === 'video') return files;
+  if (kind === 'video' || raw) return files;
   return files.map((f) => ({ url: driveImageUrl(f.id), name: f.name }));
 }
 
@@ -122,6 +122,71 @@ export async function resolveImageLinks(text) {
   }
   const seen = new Set();
   return { images: images.filter((i) => !seen.has(i.url) && seen.add(i.url)), errors };
+}
+
+/**
+ * Client galleries take photos from Google Drive only: Drive file links → image URLs,
+ * Drive folder links → every image inside. Anything else is reported as an error.
+ */
+export async function resolveDriveImageLinks(text) {
+  const parts = String(text || '').split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+  const images = [];
+  const errors = [];
+  for (const p of parts) {
+    const d = parseDrive(p);
+    try {
+      if (d?.type === 'folder') images.push(...(await listDriveFolder(d.id)));
+      else if (d?.type === 'file') images.push({ url: driveImageUrl(d.id), name: `drive:${d.id.slice(0, 8)}` });
+      else errors.push(`Not a Google Drive link: ${p.slice(0, 60)}`);
+    } catch (e) {
+      errors.push(e.message);
+    }
+  }
+  const seen = new Set();
+  return { images: images.filter((i) => !seen.has(i.url) && seen.add(i.url)), errors };
+}
+
+/**
+ * Drive photo files ({ id, name }) from pasted Drive file / folder links — used to COPY full-size photos
+ * into cloud storage. Non-Drive links are reported as errors.
+ */
+export async function resolveDriveImageFiles(text) {
+  const parts = String(text || '').split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+  const files = [];
+  const errors = [];
+  for (const p of parts) {
+    const d = parseDrive(p);
+    try {
+      if (d?.type === 'folder') files.push(...(await listDriveFolder(d.id, 'image', true)));
+      else if (d?.type === 'file') files.push({ id: d.id, name: '' });
+      else errors.push(`Not a Google Drive link: ${p.slice(0, 60)}`);
+    } catch (e) {
+      errors.push(e.message);
+    }
+  }
+  const seen = new Set();
+  return { files: files.filter((f) => !seen.has(f.id) && seen.add(f.id)), errors };
+}
+
+/**
+ * Download one publicly shared Drive file (full size). Returns the fetch Response.
+ * Uses the Drive API when GOOGLE_API_KEY is set, otherwise Drive's public download endpoint.
+ */
+export async function fetchDriveFile(id) {
+  if (!new RegExp(`^${ID}$`).test(String(id))) { const e = new Error('Bad file id'); e.status = 400; throw e; }
+  const key = process.env.GOOGLE_API_KEY;
+  const url = key
+    ? `https://www.googleapis.com/drive/v3/files/${id}?alt=media&supportsAllDrives=true&key=${encodeURIComponent(key)}`
+    : `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
+  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (photo-gallery importer)' }, redirect: 'follow' });
+  const type = r.headers.get('content-type') || '';
+  if (!r.ok || type.startsWith('text/html') || type.startsWith('application/json')) {
+    r.body?.cancel().catch(() => {});
+    const e = new Error(r.status === 404 ? 'File not found on Drive' : 'Drive wouldn’t send this file — check it is shared as “Anyone with the link can view”');
+    e.status = 502;
+    throw e;
+  }
+  return r;
 }
 
 /* ---------------- Videos ---------------- */

@@ -62,12 +62,13 @@ import { Logo } from '../Decor.jsx';
 import Galleries from './Galleries.jsx';
 import Enquiries from './Enquiries.jsx';
 import GiftCardsAdmin from './GiftCardsAdmin.jsx';
+import Newsletter from './Newsletter.jsx';
 import Backup from './Backup.jsx';
 import LoginSecurity from './LoginSecurity.jsx';
 import Dashboard from './Dashboard.jsx';
 
 // Sections that manage their own data (saved instantly), not the website content draft.
-const CUSTOM = { dashboard: Dashboard, galleries: Galleries, enquiries: Enquiries, giftcards: GiftCardsAdmin, backup: Backup, security: LoginSecurity };
+const CUSTOM = { dashboard: Dashboard, galleries: Galleries, enquiries: Enquiries, giftcards: GiftCardsAdmin, newsletter: Newsletter, backup: Backup, security: LoginSecurity };
 import '../admin.css';
 
 const TOKEN_KEY = 'babysteps-admin';
@@ -84,6 +85,7 @@ const PKG = [['maternity', 'Maternity packages'], ['newborn', 'Newborn packages'
 const SECTIONS = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏡', kind: 'dashboard', intro: 'Today at a glance: new enquiries, galleries that need you and gift cards.' },
   { id: 'enquiries', label: 'Enquiries', icon: '📥', kind: 'enquiries', intro: 'Every booking form submission, saved even if the WhatsApp message is never sent. Track each one from new to booked.' },
+  { id: 'newsletter', label: 'Newsletter', icon: '📣', kind: 'newsletter', intro: 'Email your subscribers: offers, new sets and open booking dates. Each email is branded, personal, and has an unsubscribe link.' },
   { id: 'galleries', label: 'Client galleries', icon: '🔒', kind: 'galleries', intro: 'Create private galleries, add photos and films, share logins and manage access. Changes save instantly.' },
   {
     id: 'hero', label: 'Hero banner', icon: '🌅', kind: 'list', item: 'slide',

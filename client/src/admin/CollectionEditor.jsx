@@ -3,8 +3,33 @@ import { ImageField } from './media.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useDialog } from '../components/Dialog.jsx';
 import Select from '../components/Select.jsx';
+import DatePicker from '../components/DatePicker.jsx';
+import { Markdown } from '../components/Markdown.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+
+/** Long text in simple Markdown (blog posts), with a formatting cheat-sheet and a live preview. */
+function MarkdownField({ label, value, onChange, required, hint, rows = 16, placeholder }) {
+  const [preview, setPreview] = useState(false);
+  return (
+    <div className="mdfield">
+      <div className="mdfield__head">
+        <span>{label}{required ? ' *' : ''}</span>
+        <div className="seg" role="tablist" aria-label={`${label} mode`}>
+          <button type="button" role="tab" aria-selected={!preview} className={!preview ? 'is-on' : ''} onClick={() => setPreview(false)}>Write</button>
+          <button type="button" role="tab" aria-selected={preview} className={preview ? 'is-on' : ''} onClick={() => setPreview(true)}>Preview</button>
+        </div>
+      </div>
+      {preview
+        ? <div className="mdfield__preview">{String(value || '').trim() ? <Markdown text={value} /> : <p className="muted">Nothing to preview yet.</p>}</div>
+        : <textarea rows={rows} value={value} onChange={onChange} placeholder={placeholder} aria-label={label} />}
+      <small className="muted">
+        <b>## Heading</b> · <b>### Sub-heading</b> · <b>**bold**</b> · <b>*italic*</b> · <b>[link text](https://…)</b> · <b>- list item</b> · <b>1. numbered</b> · <b>&gt; quote</b> · <b>![caption](image link)</b> on its own line · <b>---</b> divider. Leave an empty line between paragraphs.
+        {hint ? <> {hint}</> : null}
+      </small>
+    </div>
+  );
+}
 
 /** Audio field: upload an MP3/M4A (music library) or paste a link, with a preview player. */
 function AudioField({ label, value, onChange, onUploaded, token, required, hint }) {
@@ -71,6 +96,7 @@ export default function CollectionEditor({ config, call, token, onChanged }) {
       if (fd.type === 'list') f[fd.name] = (v || []).join('\n');
       else if (fd.type === 'tags') f[fd.name] = (v || []).join(', ');
       else if (fd.type === 'checkbox') f[fd.name] = v ?? fd.default ?? false;
+      else if (fd.type === 'date') f[fd.name] = v ? String(v).slice(0, 10) : (fd.default === 'today' ? new Date().toISOString().slice(0, 10) : '');
       else f[fd.name] = v ?? fd.default ?? '';
     });
     return f;
@@ -183,12 +209,12 @@ export default function CollectionEditor({ config, call, token, onChanged }) {
               <li
                 key={r._id}
                 className={`cms__row ${editing?._id === r._id ? 'is-active' : ''} ${config.publishField && !r[config.publishField] ? 'is-hidden' : ''}`}
-                draggable
+                draggable={!config.noReorder}
                 onDragStart={() => { dragFrom.current = i; }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => { reorder(dragFrom.current, i); dragFrom.current = null; }}
               >
-                <span className="cms__grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
+                {!config.noReorder && <span className="cms__grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>}
                 {config.thumb && (
                   <span className="cms__thumb">{config.thumb(r) ? <img src={config.thumb(r)} alt="" loading="lazy" /> : null}</span>
                 )}
@@ -197,8 +223,10 @@ export default function CollectionEditor({ config, call, token, onChanged }) {
                   {config.itemSub && <small>{config.itemSub(r)}</small>}
                 </button>
                 <div className="cms__btns">
-                  <button className="cms__mini" onClick={() => reorder(i, i - 1)} disabled={i === 0} aria-label="Move up">↑</button>
-                  <button className="cms__mini" onClick={() => reorder(i, i + 1)} disabled={i === rows.length - 1} aria-label="Move down">↓</button>
+                  {!config.noReorder && <>
+                    <button className="cms__mini" onClick={() => reorder(i, i - 1)} disabled={i === 0} aria-label="Move up">↑</button>
+                    <button className="cms__mini" onClick={() => reorder(i, i + 1)} disabled={i === rows.length - 1} aria-label="Move down">↓</button>
+                  </>}
                   {config.publishField && (
                     <button className={`cms__pill ${r[config.publishField] ? 'is-on' : ''}`} onClick={() => togglePublish(r)}>
                       {r[config.publishField] ? 'Live' : 'Hidden'}
@@ -209,7 +237,7 @@ export default function CollectionEditor({ config, call, token, onChanged }) {
             ))}
           </ol>
         )}
-        <p className="muted small">Drag rows (or use ↑ ↓) to change the order shown on the website.</p>
+        <p className="muted small">{config.orderNote || 'Drag rows (or use ↑ ↓) to change the order shown on the website.'}</p>
       </div>
 
       {editing && (
@@ -230,6 +258,18 @@ export default function CollectionEditor({ config, call, token, onChanged }) {
                   onChange={set(fd.name)}
                   onUploaded={(name) => { if (!form.title) set('title')(name.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ').trim()); }}
                 />
+              );
+            }
+            if (fd.type === 'markdown') {
+              return <MarkdownField key={fd.name} label={fd.label} value={v} onChange={set(fd.name)} required={fd.required} hint={fd.hint} rows={fd.rows} placeholder={fd.placeholder} />;
+            }
+            if (fd.type === 'date') {
+              return (
+                <label key={fd.name}>
+                  <span>{fd.label}{fd.required ? ' *' : ''}</span>
+                  <DatePicker value={v} onChange={(d) => setForm((f) => ({ ...f, [fd.name]: d }))} ariaLabel={fd.label} />
+                  {fd.hint && <small className="muted">{fd.hint}</small>}
+                </label>
               );
             }
             if (fd.type === 'checkbox') {

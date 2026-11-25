@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds guide-photo-studio-hostinger.zip for Hostinger → Websites → Web Apps (Node.js) → upload.
 #   - fresh production build of the website (client/dist) is included, so the host needn't build it
+#   - plus the server-side rendering bundle (client/dist-ssr)
 #   - one package.json at the root with the server's dependencies (+ lock file), entry file server/start.cjs
 #   - excludes node_modules, .env files (secrets) and anything not needed to run
 set -euo pipefail
@@ -16,6 +17,9 @@ npm run build --prefix client >/dev/null
 echo "• Staging files…"
 mkdir -p "$STAGE/client" "$STAGE/server"
 cp -R client/dist "$STAGE/client/dist"
+# Server-side rendering bundle (pages arrive as full HTML for visitors, Google and AI crawlers).
+[ -f client/dist-ssr/entry-server.mjs ] || { echo "✗ client/dist-ssr missing: the client build did not produce the SSR bundle"; exit 1; }
+cp -R client/dist-ssr "$STAGE/client/dist-ssr"
 cp -R server/src "$STAGE/server/src"
 cp server/start.cjs server/package.json "$STAGE/server/"
 mkdir -p "$STAGE/server/uploads"
