@@ -331,8 +331,8 @@ export function SettingsEditor({ call, token }) {
 
       <Section title="Home hero" desc="The big headline on the Home page.">
         {text('hero.eyebrow', 'Small line above the headline')}
-        <div className="form__row">{text('hero.title', 'Headline (line 1)')}{text('hero.titleAccent', 'Red word')}</div>
-        {text('hero.titleRest', 'Headline (after the red word)')}
+        <div className="form__row">{text('hero.title', 'Headline (line 1)')}{text('hero.titleAccent', 'Highlighted word', { hint: 'Separate several words with commas to rotate through them.' })}</div>
+        {text('hero.titleRest', 'Headline (after the highlighted word)', { hint: 'Starting with a comma puts the rest on a new line.' })}
         {text('hero.lead', 'Intro paragraph', { area: true })}
         {text('hero.leadMobile', 'Short intro for phones')}
         <ImageListField label="Hero slideshow photos" value={s.heroSlides || []} withAlt onChange={set('heroSlides')} call={call} token={token} />

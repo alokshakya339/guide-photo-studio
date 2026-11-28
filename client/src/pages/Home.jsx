@@ -18,19 +18,23 @@ import { LatestPosts } from './Blog.jsx';
 import { useTitle, useReveal, CountUp, Loader } from '../components/common.jsx';
 import { IconArrow, IconPhone, IconWhatsApp } from '../components/Icons.jsx';
 
-const WORDS = ['emotions', 'rituals', 'promises', 'laughter', 'memories'];
 const pad = (n) => String(n).padStart(2, '0');
 
 function Hero() {
   const slides = SITE.heroSlides;
+  const h = SITE.hero || {};
+  // "Highlighted word(s)" in Site settings: a comma-separated list rotates through each word.
+  const WORDS = String(h.titleAccent || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const eyebrow = String(h.eyebrow || '').split(' · ');
+  const rest = String(h.titleRest || '');
   const [i, setI] = useState(0);
   const [w, setW] = useState(0);
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
     const t = setInterval(() => setI((n) => (n + 1) % slides.length), 6000);
-    const u = setInterval(() => setW((n) => (n + 1) % WORDS.length), 2600);
+    const u = WORDS.length > 1 ? setInterval(() => setW((n) => (n + 1) % WORDS.length), 2600) : null;
     return () => { clearInterval(t); clearInterval(u); };
-  }, [slides.length]);
+  }, [slides.length, WORDS.length]);
 
   return (
     <section className="ehero">
@@ -47,16 +51,19 @@ function Hero() {
       ))}
       <div className="ehero__shade" />
       <div className="container ehero__content">
-        <p className="ehero__eyebrow">25+ years · Four generations<span className="hide-sm"> · Noida, Delhi NCR &amp; destinations</span></p>
+        {eyebrow[0] && (
+          <p className="ehero__eyebrow">
+            {eyebrow.slice(0, 2).join(' · ')}
+            {eyebrow.length > 2 && <span className="hide-sm"> · {eyebrow.slice(2).join(' · ')}</span>}
+          </p>
+        )}
         <h1 className="ehero__title">
-          Raw <span className="ehero__word" key={w}><em>{WORDS[w]}</em></span>,
-          <br /> beautifully captured.
+          {h.title}{' '}
+          {WORDS.length > 0 && <span className="ehero__word" key={w}><em>{WORDS[w % WORDS.length]}</em></span>}
+          {rest.startsWith(',') ? <>,<br /> {rest.slice(1).trim()}</> : rest}
         </h1>
-        <p className="ehero__lead hide-sm">
-          Cinematic wedding photography &amp; films, pre-wedding and portrait shoots, by a family of
-          photographers four generations strong.
-        </p>
-        <p className="ehero__lead show-sm">Weddings, films &amp; portraits by a family studio in Noida.</p>
+        {h.lead && <p className="ehero__lead hide-sm">{h.lead}</p>}
+        {(h.leadMobile || h.lead) && <p className="ehero__lead show-sm">{h.leadMobile || h.lead}</p>}
         <div className="ehero__ctas">
           <Link to="/contact" className="ebtn ebtn--light">Enquire now <IconArrow width={16} height={16} /></Link>
           <Link to="/portfolio" className="ebtn ebtn--line-light">Our work</Link>

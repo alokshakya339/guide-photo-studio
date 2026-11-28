@@ -343,6 +343,10 @@ const safeJson = (v) => JSON.stringify(v).replace(/</g, '\\u003c').replace(/\u20
 const NO_SSR = [/^\/admin(\/|$)/, /^\/account(\/|$)/, /^\/client(\/|$)/, /^\/invite\//];
 let ssrMod;
 let siteCache = { at: 0, data: null };
+// Where SSR fetches this app's own API. Set by index.js to a private 127.0.0.1 listener, because behind
+// Hostinger's Passenger the public socket is not a reachable TCP port (req.socket.localPort is unusable).
+let internalOrigin = '';
+export function setInternalOrigin(origin) { internalOrigin = origin; }
 async function ssrPage(clientDist, req) {
   if (process.env.SSR === 'off' || NO_SSR.some((rx) => rx.test(req.path))) return null;
   if (ssrMod === undefined) {
@@ -351,12 +355,17 @@ async function ssrPage(clientDist, req) {
     console.log(ssrMod ? '[ssr] server-side rendering on' : '[ssr] off: client/dist-ssr/entry-server.mjs not found (run the client build)');
   }
   if (!ssrMod) return null;
-  const api = `http://127.0.0.1:${req.socket.localPort}/api`;
+  const api = `${internalOrigin || `http://127.0.0.1:${req.socket.localPort}`}/api`;
   const get = async (p) => {
     try { const r = await fetch(api + p, { signal: AbortSignal.timeout(3000) }); return r.ok ? await r.json() : undefined; } catch { return undefined; }
   };
   try {
-    if (!siteCache.data || Date.now() - siteCache.at > 30_000) siteCache = { at: Date.now(), data: (await get('/site')) || siteCache.data || {} };
+    if (!siteCache.data || Date.now() - siteCache.at > 30_000) {
+      const fresh = await get('/site');
+      if (fresh) siteCache = { at: Date.now(), data: fresh };
+      else console.error(`[ssr] could not load site content from ${api}/site`);
+    }
+    if (!siteCache.data) return null; // no CMS content: send the plain page so the browser loads it itself
     const site = siteCache.data;
     const url = req.originalUrl;
     const collect = new Set();

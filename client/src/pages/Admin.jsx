@@ -251,7 +251,7 @@ function Plans({ call }) {
               {rows.map((p) => (
                 <tr key={p.code}>
                   <td><strong>{p.name}</strong><br /><small className="muted">{p.description}</small></td>
-                  <td>{p.period}</td>
+                  <td style={{ textTransform: 'capitalize' }}>{p.period}</td>
                   <td>
                     <input
                       type="number" min="1" step="1" style={{ width: 120 }}
@@ -262,8 +262,10 @@ function Plans({ call }) {
                   </td>
                   <td>{p.active ? 'Offered' : 'Hidden'}</td>
                   <td>
-                    <button className="link-btn" onClick={() => save(p)} disabled={edit[p.code] == null}>Save</button>{' '}
-                    <button className="link-btn" onClick={() => toggle(p)}>{p.active ? 'Hide' : 'Offer'}</button>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                      {edit[p.code] != null && <button className="btn btn--primary btn--sm" onClick={() => save(p)}>Save</button>}
+                      <button className="btn btn--ghost btn--sm" onClick={() => toggle(p)}>{p.active ? 'Hide' : 'Offer'}</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -598,6 +600,9 @@ export default function Admin() {
   const [badges, setBadges] = useState({});
 
   useEffect(() => {
+    // /admin renders outside <Layout>, so the public site's light theme class can linger
+    // after client-side navigation — drop it, or panel text ends up light-on-cream.
+    document.body.classList.remove('ed', 'ed--white');
     document.body.classList.add('adm-body');
     return () => document.body.classList.remove('adm-body');
   }, []);

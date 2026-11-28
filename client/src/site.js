@@ -59,12 +59,12 @@ export const SITE = {
     },
   ],
   hero: {
-    eyebrow: 'Wedding & portrait photographers · Noida, Delhi NCR',
-    title: 'Moments pass.',
-    titleAccent: 'Memories',
-    titleRest: ', captured right, are eternal.',
-    lead: 'Cinematic wedding photography and films, pre-wedding and portrait shoots, crafted by a family of photographers across four generations.',
-    leadMobile: 'Cinematic weddings, films & portraits by a family studio in Noida.',
+    eyebrow: '25+ years · Four generations · Noida, Delhi NCR & destinations',
+    title: 'Raw',
+    titleAccent: 'emotions, rituals, promises, laughter, memories',
+    titleRest: ', beautifully captured.',
+    lead: 'Cinematic wedding photography & films, pre-wedding and portrait shoots, by a family of photographers four generations strong.',
+    leadMobile: 'Weddings, films & portraits by a family studio in Noida.',
   },
   footer: {
     eyebrow: '',

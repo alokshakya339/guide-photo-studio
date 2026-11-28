@@ -19,7 +19,7 @@ import { publicGiftRoutes, adminGiftRoutes, giftWebhook } from './routes/giftCar
 import { publicInviteRoutes, adminInviteRoutes, adminInvitePackageRoutes, inviteHtml } from './invites/routes.js';
 import accountRoutes from './account/routes.js';
 import { runMigrations } from './migrations.js';
-import { seoRoutes } from './seo.js';
+import { seoRoutes, setInternalOrigin } from './seo.js';
 
 const { PORT = 5050, MONGO_URI, JWT_SECRET, CLIENT_ORIGIN = 'http://localhost:5173', NODE_ENV } = process.env;
 
@@ -90,6 +90,9 @@ mongoose
         process.exit(1);
       }
       console.log(`API listening on http://${host}:${PORT}`);
+      // Private loopback listener for server-side rendering to call this API (see setInternalOrigin in seo.js).
+      const internal = app.listen(0, '127.0.0.1', () => setInternalOrigin(`http://127.0.0.1:${internal.address().port}`));
+      internal.on('error', (e) => console.error('[ssr] internal listener failed:', e.message));
       const mode = paymentMode();
       if (mode !== 'razorpay') console.warn(`Payments: ${mode === 'mock' ? 'TEST MODE (no Razorpay keys set)' : 'DISABLED (set RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET)'}`);
     });

@@ -19,7 +19,8 @@ const app = (
 
 // Pages rendered on the server (SSR) arrive with their HTML and the data used to make it: reuse both.
 const pre = window.__SSR__;
-if (pre && el.hasAttribute('data-ssr')) {
+// An empty `site` means the server couldn't reach its own CMS data: render in the browser from /api/site instead.
+if (pre && el.hasAttribute('data-ssr') && pre.site && Object.keys(pre.site).length) {
   applySite(pre.site);
   setSsrData(pre.data);
   ReactDOM.hydrateRoot(el, app, { onRecoverableError: (e) => console.warn('[hydration]', e?.message || e) });
